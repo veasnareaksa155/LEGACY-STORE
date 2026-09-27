@@ -582,7 +582,7 @@ function App() {
   return (
     <ConfigProvider theme={luxuryTheme}>
       <div className="min-h-screen bg-[#fafafa] text-neutral-900 flex flex-col font-sans selection:bg-black selection:text-white relative justify-between pb-16 md:pb-0">
-        {loading && <LuxuryLoader fullScreen text="LEGACY" />}
+        {loading && <LuxuryLoader fullScreen text="ALEXANDRE LUXE" />}
         {/* Header Navigation Bar */}
         <Navbar
           cartCount={totalCartCount}

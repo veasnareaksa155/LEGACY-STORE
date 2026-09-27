@@ -910,7 +910,7 @@ const HomePage = ({
           {/* Product Cards Grid */}
           {loading ? (
             <div className="py-12 flex justify-center items-center">
-              <LuxuryLoader text="LEGACY" size="2.5em" />
+              <LuxuryLoader text="LOADING" size="2.5em" />
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 mb-10 scroll-reveal-stagger">
