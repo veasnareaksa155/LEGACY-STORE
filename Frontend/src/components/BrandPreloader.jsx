@@ -1,6 +1,6 @@
 import React from "react";
 
-const BrandPreloader = ({ text = "INITIALIZING ALEXANDRE LUXE..." }) => {
+const BrandPreloader = ({ text = "INITIALIZING LEGACY..." }) => {
   return (
     <div className="fixed inset-0 z-[99999] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-4 text-white transition-opacity duration-500 animate-in fade-in">
       {/* Background Radial Glow */}
@@ -26,7 +26,7 @@ const BrandPreloader = ({ text = "INITIALIZING ALEXANDRE LUXE..." }) => {
           />
           <text className="text-[6.5px] font-mono font-extrabold fill-amber-300 uppercase tracking-[0.25em]">
             <textPath href="#preloaderCirclePath" startOffset="0%">
-              • ALEXANDRE LUXE • HAUTE COUTURE • EST. 2026 • PARIS • MILAN •
+              • LEGACY • HAUTE COUTURE • EST. 2026 • PARIS • MILAN •
             </textPath>
           </text>
         </svg>
@@ -35,7 +35,7 @@ const BrandPreloader = ({ text = "INITIALIZING ALEXANDRE LUXE..." }) => {
         <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-neutral-950 border border-amber-500/40 flex items-center justify-center shadow-2xl z-10 p-2.5 animate-pulse">
           <img
             src="/images/LOGO.png"
-            alt="Alexandre Luxe Logo"
+            alt="Legacy Logo"
             className="w-full h-full object-contain filter drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
             onError={(e) => {
               e.target.style.display = "none";
