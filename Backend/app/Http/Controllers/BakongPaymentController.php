@@ -115,7 +115,7 @@ class BakongPaymentController extends Controller
         $merchantIdClean = trim($merchantId); // e.g. veasna_reaksa@bkrt
         $isKhr = strtoupper($currency) === 'KHR';
 
-        $merchantNameClean = substr(preg_replace('/[^A-Za-z0-9 ]/', '', $merchantName), 0, 25);
+        $merchantNameClean = strtoupper(substr(preg_replace('/[^A-Za-z0-9 ]/', '', $merchantName), 0, 25));
         if (empty($merchantNameClean)) {
             $merchantNameClean = "REAKSA VEASNA";
         }
@@ -143,27 +143,14 @@ class BakongPaymentController extends Controller
         // Tag 59: Account Name
         $tag59 = "59" . str_pad(strlen($merchantNameClean), 2, '0', STR_PAD_LEFT) . $merchantNameClean;
 
-        // Tag 60: City (Titlecase Phnom Penh for NBC standard)
-        $tag60 = "6010Phnom Penh";
+        // Tag 60: City (Must be PHNOM PENH in uppercase)
+        $tag60 = "6010PHNOM PENH";
 
-        // Tag 62: Additional Data Field (Bill Number, Mobile, Store Label, Terminal)
-        $mobileNumber = env('BAKONG_MOBILE_NUMBER', '855885232761');
-        $storeLabel = env('BAKONG_STORE_LABEL', 'Paris Atelier');
-        $terminalLabel = env('BAKONG_TERMINAL', 'WEB-STORE');
-
+        // Tag 62: Additional Data Field (Subtag 01 Bill Number)
         $subtag62_01 = "01" . str_pad(strlen($billNumber), 2, '0', STR_PAD_LEFT) . $billNumber;
-        $subtag62_02 = !empty($mobileNumber) ? "02" . str_pad(strlen($mobileNumber), 2, '0', STR_PAD_LEFT) . $mobileNumber : "";
-        $subtag62_03 = !empty($storeLabel) ? "03" . str_pad(strlen($storeLabel), 2, '0', STR_PAD_LEFT) . $storeLabel : "";
-        $subtag62_07 = !empty($terminalLabel) ? "07" . str_pad(strlen($terminalLabel), 2, '0', STR_PAD_LEFT) . $terminalLabel : "";
-        $subtag62Val = $subtag62_01 . $subtag62_02 . $subtag62_03 . $subtag62_07;
-        $tag62 = "62" . str_pad(strlen($subtag62Val), 2, '0', STR_PAD_LEFT) . $subtag62Val;
+        $tag62 = "62" . str_pad(strlen($subtag62_01), 2, '0', STR_PAD_LEFT) . $subtag62_01;
 
-        // Tag 99: Creation Timestamp
-        $nowMs = (string) round(microtime(true) * 1000);
-        $subtag99_00 = "00" . str_pad(strlen($nowMs), 2, '0', STR_PAD_LEFT) . $nowMs;
-        $tag99 = "99" . str_pad(strlen($subtag99_00), 2, '0', STR_PAD_LEFT) . $subtag99_00;
-
-        $basePayload = "000201010212" . $accountTag . $tag52 . $tag53 . $tag54 . $tag58 . $tag59 . $tag60 . $tag62 . $tag99 . "6304";
+        $basePayload = "000201010212" . $accountTag . $tag52 . $tag53 . $tag54 . $tag58 . $tag59 . $tag60 . $tag62 . "6304";
 
         $crc = $this->calculateCRC16($basePayload);
 
