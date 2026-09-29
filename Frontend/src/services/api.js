@@ -345,11 +345,12 @@ export const generateBakongKhqr = async (orderId, amount, currency = "USD") => {
   }
 };
 
-export const checkBakongPaymentStatus = async (md5, orderId = null) => {
+export const checkBakongPaymentStatus = async (md5, orderId = null, manual = false) => {
   try {
     const response = await api.post("/bakong/check-status", {
       md5,
       order_id: orderId,
+      manual,
     });
     return response.data;
   } catch (error) {

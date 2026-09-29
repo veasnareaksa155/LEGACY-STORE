@@ -183,19 +183,20 @@ class BakongPaymentController extends Controller
         $validated = $request->validate([
             'md5' => 'required|string',
             'order_id' => 'nullable',
+            'manual' => 'nullable|boolean',
         ]);
 
         $md5 = $validated['md5'];
         $orderId = $validated['order_id'] ?? null;
+        $isManual = filter_var($request->input('manual', false), FILTER_VALIDATE_BOOLEAN);
 
         $baseUrl = rtrim(env('BAKONG_API_URL', 'https://api-bakong.nbc.gov.kh'), '/');
         if (!str_contains($baseUrl, '/v1')) {
             $baseUrl .= '/v1';
         }
         $bakongToken = env('BAKONG_TOKEN', null);
-        $simulationMode = filter_var(env('BAKONG_SIMULATION', true), FILTER_VALIDATE_BOOLEAN);
 
-        // If Bakong Token is present, verify with NBC Bakong API
+        // 1. If Bakong Token is present, verify with NBC Bakong Open API
         if (!empty($bakongToken)) {
             try {
                 Log::info("Bakong checking payment MD5: {$md5} for Order ID: " . ($orderId ?? 'N/A'));
@@ -235,8 +236,8 @@ class BakongPaymentController extends Controller
             }
         }
 
-        // If no token is configured on hosting OR simulation mode is enabled, auto-confirm for testing & demo
-        if (empty($bakongToken) || $simulationMode) {
+        // 2. If user explicitly clicked manual verification or button confirm
+        if ($isManual) {
             if (!empty($orderId)) {
                 $order = Order::find($orderId);
                 if ($order) {
@@ -249,11 +250,12 @@ class BakongPaymentController extends Controller
             return response()->json([
                 'status' => 'success',
                 'paid' => true,
-                'message' => 'Payment confirmed (Test / Simulation Mode)!',
+                'message' => 'Payment verified & order confirmed!',
                 'md5' => $md5
             ]);
         }
 
+        // 3. Otherwise during background scanning, keep waiting for scan
         return response()->json([
             'status' => 'success',
             'paid' => false,

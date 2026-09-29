@@ -620,6 +620,7 @@ const CheckoutModal = ({
         const res = await checkBakongPaymentStatus(
           khqrData.md5,
           currentOrder?.id,
+          true,
         );
         if (res && res.paid) {
           setTimeout(() => {
