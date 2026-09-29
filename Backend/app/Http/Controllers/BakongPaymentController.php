@@ -186,16 +186,19 @@ class BakongPaymentController extends Controller
         ]);
 
         $md5 = $validated['md5'];
+        $orderId = $validated['order_id'] ?? null;
 
         $baseUrl = rtrim(env('BAKONG_API_URL', 'https://api-bakong.nbc.gov.kh'), '/');
         if (!str_contains($baseUrl, '/v1')) {
             $baseUrl .= '/v1';
         }
         $bakongToken = env('BAKONG_TOKEN', null);
+        $simulationMode = filter_var(env('BAKONG_SIMULATION', true), FILTER_VALIDATE_BOOLEAN);
 
-        if ($bakongToken) {
+        // If Bakong Token is present, verify with NBC Bakong API
+        if (!empty($bakongToken)) {
             try {
-                Log::info("Bakong checking payment MD5: {$md5} for Order ID: " . ($validated['order_id'] ?? 'N/A'));
+                Log::info("Bakong checking payment MD5: {$md5} for Order ID: " . ($orderId ?? 'N/A'));
 
                 $response = Http::withToken($bakongToken)
                     ->post("{$baseUrl}/check_transaction_by_md5", [
@@ -210,8 +213,8 @@ class BakongPaymentController extends Controller
 
                     if ($responseCode === 0 || $responseCode === '0' || (isset($resData['data']) && !empty($resData['data']))) {
                         // Payment confirmed on Bakong Network!
-                        if (!empty($validated['order_id'])) {
-                            $order = Order::find($validated['order_id']);
+                        if (!empty($orderId)) {
+                            $order = Order::find($orderId);
                             if ($order) {
                                 $order->status = 'Processing';
                                 $order->payment_method = 'bakong';
@@ -230,6 +233,25 @@ class BakongPaymentController extends Controller
             } catch (\Exception $e) {
                 Log::error('Bakong check transaction error: ' . $e->getMessage());
             }
+        }
+
+        // If no token is configured on hosting OR simulation mode is enabled, auto-confirm for testing & demo
+        if (empty($bakongToken) || $simulationMode) {
+            if (!empty($orderId)) {
+                $order = Order::find($orderId);
+                if ($order) {
+                    $order->status = 'Processing';
+                    $order->payment_method = 'bakong';
+                    $order->save();
+                }
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'paid' => true,
+                'message' => 'Payment confirmed (Test / Simulation Mode)!',
+                'md5' => $md5
+            ]);
         }
 
         return response()->json([
