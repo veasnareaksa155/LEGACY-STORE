@@ -38,38 +38,9 @@ class BakongPaymentController extends Controller
         $qrData = null;
         $md5Hash = null;
 
-        // Generate 100% NBC & EMVCo Compliant Dynamic KHQR using official BakongKHQR SDK
-        try {
-            $currencyConstant = ($currency === 'KHR') ? KHQRData::CURRENCY_KHR : KHQRData::CURRENCY_USD;
-            $individualInfo = new IndividualInfo(
-                $merchantId,
-                $merchantName,
-                'Phnom Penh',
-                null,
-                null,
-                $currencyConstant,
-                $amount,
-                $billNumber,
-                $storeLabel,
-                $terminal,
-                $mobileNumber
-            );
-
-            $khqrResponse = BakongKHQR::generateIndividual($individualInfo);
-
-            if ($khqrResponse && isset($khqrResponse->data['qr'])) {
-                $qrData = $khqrResponse->data['qr'];
-                $md5Hash = $khqrResponse->data['md5'] ?? md5($qrData);
-            }
-        } catch (\Exception $e) {
-            Log::error('BakongKHQR SDK Generation Error: ' . $e->getMessage());
-        }
-
-        // Fallback to manual builder if SDK call fails
-        if (empty($qrData)) {
-            $qrData = $this->buildEMVCoKHQR($merchantId, $merchantName, $amount, $billNumber, $currency);
-            $md5Hash = md5($qrData);
-        }
+        // Generate 100% NBC & EMVCo Compliant Dynamic KHQR (guarantees USD 2 decimal formatting e.g. 10.00 for ABA Mobile)
+        $qrData = $this->buildEMVCoKHQR($merchantId, $merchantName, $amount, $billNumber, $currency);
+        $md5Hash = md5($qrData);
 
         // Generate NBC Bakong Official Deeplink if token is available
         $deeplink = null;
@@ -149,15 +120,11 @@ class BakongPaymentController extends Controller
             $merchantNameClean = "REAKSA VEASNA";
         }
 
-        // Tag 29 (Individual Bakong Account Tag for personal Bakong Account IDs like veasna_reaksa@bkrt)
-        $subtag00_29 = "00" . str_pad(strlen($merchantIdClean), 2, '0', STR_PAD_LEFT) . $merchantIdClean;
-        $tag29Value = $subtag00_29;
-        $tag29 = "29" . str_pad(strlen($tag29Value), 2, '0', STR_PAD_LEFT) . $tag29Value;
-
-        // Tag 30 (Merchant Bakong Account Tag)
-        $subtag00_30 = "00" . str_pad(strlen($merchantIdClean), 2, '0', STR_PAD_LEFT) . $merchantIdClean;
-        $tag30Value = $subtag00_30;
-        $tag30 = "30" . str_pad(strlen($tag30Value), 2, '0', STR_PAD_LEFT) . $tag30Value;
+        // Tag 29 (Individual) or Tag 30 (Merchant)
+        $subtag00 = "00" . str_pad(strlen($merchantIdClean), 2, '0', STR_PAD_LEFT) . $merchantIdClean;
+        $tag29 = "29" . str_pad(strlen($subtag00), 2, '0', STR_PAD_LEFT) . $subtag00;
+        $tag30 = "30" . str_pad(strlen($subtag00), 2, '0', STR_PAD_LEFT) . $subtag00;
+        $accountTag = (strpos($merchantIdClean, '@') !== false) ? $tag29 : $tag30;
 
         // Tag 52: MCC
         $tag52 = "52045999";
@@ -166,7 +133,7 @@ class BakongPaymentController extends Controller
         $currencyCode = $isKhr ? '116' : '840';
         $tag53 = "5303" . $currencyCode;
 
-        // Tag 54: Amount (USD requires 2 decimal places e.g. 280.00, KHR is integer)
+        // Tag 54: Amount (USD MUST ALWAYS have 2 decimal places e.g. 10.00 for ABA Mobile, KHR is integer)
         $formattedAmount = $isKhr ? (string) round((float) $amount) : number_format((float) $amount, 2, '.', '');
         $tag54 = "54" . str_pad(strlen($formattedAmount), 2, '0', STR_PAD_LEFT) . $formattedAmount;
 
@@ -176,29 +143,28 @@ class BakongPaymentController extends Controller
         // Tag 59: Account Name
         $tag59 = "59" . str_pad(strlen($merchantNameClean), 2, '0', STR_PAD_LEFT) . $merchantNameClean;
 
-        // Tag 60: City
-        $tag60 = "6010PHNOM PENH";
+        // Tag 60: City (Titlecase Phnom Penh for NBC standard)
+        $tag60 = "6010Phnom Penh";
 
-        // Tag 62: Additional Data Field (Bill Number & Mobile Number)
+        // Tag 62: Additional Data Field (Bill Number, Mobile, Store Label, Terminal)
         $mobileNumber = env('BAKONG_MOBILE_NUMBER', '855885232761');
+        $storeLabel = env('BAKONG_STORE_LABEL', 'Paris Atelier');
+        $terminalLabel = env('BAKONG_TERMINAL', 'WEB-STORE');
+
         $subtag62_01 = "01" . str_pad(strlen($billNumber), 2, '0', STR_PAD_LEFT) . $billNumber;
         $subtag62_02 = !empty($mobileNumber) ? "02" . str_pad(strlen($mobileNumber), 2, '0', STR_PAD_LEFT) . $mobileNumber : "";
-        $subtag62Val = $subtag62_01 . $subtag62_02;
+        $subtag62_03 = !empty($storeLabel) ? "03" . str_pad(strlen($storeLabel), 2, '0', STR_PAD_LEFT) . $storeLabel : "";
+        $subtag62_07 = !empty($terminalLabel) ? "07" . str_pad(strlen($terminalLabel), 2, '0', STR_PAD_LEFT) . $terminalLabel : "";
+        $subtag62Val = $subtag62_01 . $subtag62_02 . $subtag62_03 . $subtag62_07;
         $tag62 = "62" . str_pad(strlen($subtag62Val), 2, '0', STR_PAD_LEFT) . $subtag62Val;
 
-        // Tag 99: Dynamic KHQR Timestamps (Creation & Expiration Timestamps in MS)
+        // Tag 99: Creation Timestamp
         $nowMs = (string) round(microtime(true) * 1000);
-        $expMs = (string) (round(microtime(true) * 1000) + (30 * 60 * 1000));
         $subtag99_00 = "00" . str_pad(strlen($nowMs), 2, '0', STR_PAD_LEFT) . $nowMs;
-        $subtag99_01 = "01" . str_pad(strlen($expMs), 2, '0', STR_PAD_LEFT) . $expMs;
-        $tag99Val = $subtag99_00 . $subtag99_01;
-        $tag99 = "99" . str_pad(strlen($tag99Val), 2, '0', STR_PAD_LEFT) . $tag99Val;
+        $tag99 = "99" . str_pad(strlen($subtag99_00), 2, '0', STR_PAD_LEFT) . $subtag99_00;
 
-        // Account Tag selection: Tag 29 for Individual (@bkrt), Tag 30 for Merchant ID
-        $accountTag = (strpos($merchantIdClean, '@') !== false) ? $tag29 : $tag30;
         $basePayload = "000201010212" . $accountTag . $tag52 . $tag53 . $tag54 . $tag58 . $tag59 . $tag60 . $tag62 . $tag99 . "6304";
 
-        // Calculate valid CRC16 checksum
         $crc = $this->calculateCRC16($basePayload);
 
         return $basePayload . $crc;
