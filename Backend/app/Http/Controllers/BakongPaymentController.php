@@ -38,9 +38,38 @@ class BakongPaymentController extends Controller
         $qrData = null;
         $md5Hash = null;
 
-        // Generate 100% NBC & EMVCo Compliant Dynamic KHQR (Guarantees USD Tag 54 is formatted with 2 decimal places e.g. 20.00 for ABA Mobile)
-        $qrData = $this->buildEMVCoKHQR($merchantId, $merchantName, $amount, $billNumber, $currency);
-        $md5Hash = md5($qrData);
+        // Generate 100% NBC & EMVCo Compliant Dynamic KHQR using official BakongKHQR SDK
+        try {
+            $currencyConstant = ($currency === 'KHR') ? KHQRData::CURRENCY_KHR : KHQRData::CURRENCY_USD;
+            $individualInfo = new IndividualInfo(
+                $merchantId,
+                $merchantName,
+                'Phnom Penh',
+                null,
+                null,
+                $currencyConstant,
+                $amount,
+                $billNumber,
+                $storeLabel,
+                $terminal,
+                $mobileNumber
+            );
+
+            $khqrResponse = BakongKHQR::generateIndividual($individualInfo);
+
+            if ($khqrResponse && isset($khqrResponse->data['qr'])) {
+                $qrData = $khqrResponse->data['qr'];
+                $md5Hash = $khqrResponse->data['md5'] ?? md5($qrData);
+            }
+        } catch (\Exception $e) {
+            Log::error('BakongKHQR SDK Generation Error: ' . $e->getMessage());
+        }
+
+        // Fallback to manual builder if SDK call fails
+        if (empty($qrData)) {
+            $qrData = $this->buildEMVCoKHQR($merchantId, $merchantName, $amount, $billNumber, $currency);
+            $md5Hash = md5($qrData);
+        }
 
         // Generate NBC Bakong Official Deeplink if token is available
         $deeplink = null;
@@ -210,9 +239,9 @@ class BakongPaymentController extends Controller
 
                 if ($response->successful()) {
                     $resData = $response->json();
-                    $responseCode = $resData['responseCode'] ?? ($resData['status']['code'] ?? 1);
+                    $responseCode = $resData['responseCode'] ?? ($resData['status']['code'] ?? null);
 
-                    if ($responseCode === 0 || $responseCode === '0' || (isset($resData['data']) && !empty($resData['data']))) {
+                    if (($responseCode === 0 || $responseCode === '0') && !empty($resData['data'])) {
                         // Payment confirmed on Bakong Network!
                         if (!empty($orderId)) {
                             $order = Order::find($orderId);

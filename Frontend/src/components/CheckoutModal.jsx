@@ -214,10 +214,46 @@ const generateClientKhqr = (orderId, amount, currency = "USD") => {
   const isKhr = currency === "KHR";
   const numAmount = Number(amount);
   const billNum = `LX${String(orderId).padStart(6, "0").slice(-6)}`;
+
+  try {
+    const optionalData = {
+      currency: isKhr ? BakongData.currency.khr : BakongData.currency.usd,
+      amount: numAmount,
+      billNumber: billNum,
+      storeLabel: "Paris Atelier",
+      terminalLabel: "WEB-STORE",
+      mobileNumber: "855885232761",
+    };
+
+    const individualInfo = new IndividualInfo(
+      "veasna_reaksa@bkrt",
+      "REAKSA VEASNA",
+      "Phnom Penh",
+      optionalData,
+    );
+
+    const khqr = new BakongKHQR();
+    const response = khqr.generateIndividual(individualInfo);
+
+    if (response && response.data && response.data.qr) {
+      return {
+        order_id: orderId,
+        amount: numAmount,
+        currency: currency,
+        bill_number: billNum,
+        md5: response.data.md5 || calculateMd5(response.data.qr),
+        qr_string: response.data.qr,
+        merchant_name: "REAKSA VEASNA",
+        merchant_id: "veasna_reaksa@bkrt",
+      };
+    }
+  } catch (err) {
+    console.warn("Client BakongKHQR package generation fallback:", err);
+  }
+
   const now = Date.now();
   const expiration = now + 30 * 60 * 1000;
 
-  // Standard EMVCo & NBC KHQR Payload Structure (USD requires 2 decimal places e.g. 20.00 for ABA Mobile)
   const formattedAmt = isKhr
     ? String(Math.round(numAmount))
     : numAmount.toFixed(2);
@@ -620,7 +656,6 @@ const CheckoutModal = ({
         const res = await checkBakongPaymentStatus(
           khqrData.md5,
           currentOrder?.id,
-          true,
         );
         if (res && res.paid) {
           setTimeout(() => {
