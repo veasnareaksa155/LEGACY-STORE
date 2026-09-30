@@ -214,11 +214,52 @@ const generateClientKhqr = (orderId, amount, currency = "USD") => {
   const isKhr = currency === "KHR";
   const numAmount = Number(amount);
   const billNum = `LX${String(orderId).padStart(6, "0").slice(-6)}`;
+  const now = Date.now();
+  const expiration = now + 30 * 60 * 1000;
 
-  // Standard EMVCo & NBC KHQR Payload Structure (USD MUST ALWAYS have 2 decimal places e.g. 10.00 for ABA Mobile)
+  try {
+    const optionalData = {
+      currency: isKhr ? BakongData.currency.khr : BakongData.currency.usd,
+      amount: numAmount,
+      billNumber: billNum,
+      storeLabel: "Paris Atelier",
+      terminalLabel: "WEB-STORE",
+      mobileNumber: "855885232761",
+      timestamp: now,
+      expirationTimestamp: expiration,
+    };
+
+    const individualInfo = new IndividualInfo(
+      "veasna_reaksa@bkrt",
+      "REAKSA VEASNA",
+      "Phnom Penh",
+      optionalData,
+    );
+
+    const khqr = new BakongKHQR();
+    const response = khqr.generateIndividual(individualInfo);
+
+    if (response && response.data && response.data.qr) {
+      return {
+        order_id: orderId,
+        amount: numAmount,
+        currency: currency,
+        bill_number: billNum,
+        md5: response.data.md5 || calculateMd5(response.data.qr),
+        qr_string: response.data.qr,
+        merchant_name: "REAKSA VEASNA",
+        merchant_id: "veasna_reaksa@bkrt",
+      };
+    }
+  } catch (err) {
+    console.warn("Client BakongKHQR generation error:", err);
+  }
+
   const formattedAmt = isKhr
     ? String(Math.round(numAmount))
     : numAmount.toFixed(2);
+  const nowMs = now.toString();
+  const expMs = expiration.toString();
 
   const merchantId = "veasna_reaksa@bkrt";
   const tag29Val =
@@ -230,11 +271,28 @@ const generateClientKhqr = (orderId, amount, currency = "USD") => {
     "54" + String(formattedAmt.length).padStart(2, "0") + formattedAmt;
   const tag58 = "5802KH";
   const tag59 = "5913REAKSA VEASNA";
-  const tag60 = "6010PHNOM PENH";
+  const tag60 = "6010Phnom Penh";
+
+  const mobileNum = "855885232761";
+  const storeLabel = "Paris Atelier";
+  const terminalLabel = "WEB-STORE";
 
   const subtag62_01 = "01" + String(billNum.length).padStart(2, "0") + billNum;
+  const subtag62_02 =
+    "02" + String(mobileNum.length).padStart(2, "0") + mobileNum;
+  const subtag62_03 =
+    "03" + String(storeLabel.length).padStart(2, "0") + storeLabel;
+  const subtag62_07 =
+    "07" + String(terminalLabel.length).padStart(2, "0") + terminalLabel;
+  const subtag62Val =
+    subtag62_01 + subtag62_02 + subtag62_03 + subtag62_07;
   const tag62 =
-    "62" + String(subtag62_01.length).padStart(2, "0") + subtag62_01;
+    "62" + String(subtag62Val.length).padStart(2, "0") + subtag62Val;
+
+  const subtag99_00 = "00" + String(nowMs.length).padStart(2, "0") + nowMs;
+  const subtag99_01 = "01" + String(expMs.length).padStart(2, "0") + expMs;
+  const tag99Val = subtag99_00 + subtag99_01;
+  const tag99 = "99" + String(tag99Val.length).padStart(2, "0") + tag99Val;
 
   const baseStr =
     "000201010212" +
@@ -246,6 +304,7 @@ const generateClientKhqr = (orderId, amount, currency = "USD") => {
     tag59 +
     tag60 +
     tag62 +
+    tag99 +
     "6304";
 
   let crc = 0xffff;

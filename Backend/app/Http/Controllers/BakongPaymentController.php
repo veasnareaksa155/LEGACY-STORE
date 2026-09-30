@@ -38,9 +38,37 @@ class BakongPaymentController extends Controller
         $qrData = null;
         $md5Hash = null;
 
-        // Generate 100% NBC & EMVCo Compliant Dynamic KHQR (guarantees USD 2 decimal formatting e.g. 10.00 for ABA Mobile)
-        $qrData = $this->buildEMVCoKHQR($merchantId, $merchantName, $amount, $billNumber, $currency);
-        $md5Hash = md5($qrData);
+        // Generate 100% NBC & EMVCo Compliant Dynamic KHQR using official BakongKHQR SDK
+        try {
+            $currencyConstant = ($currency === 'KHR') ? KHQRData::CURRENCY_KHR : KHQRData::CURRENCY_USD;
+            $individualInfo = new IndividualInfo(
+                $merchantId,
+                $merchantName,
+                'Phnom Penh',
+                null,
+                null,
+                $currencyConstant,
+                $amount,
+                $billNumber,
+                $storeLabel,
+                $terminal,
+                $mobileNumber
+            );
+
+            $khqrResponse = BakongKHQR::generateIndividual($individualInfo);
+
+            if ($khqrResponse && isset($khqrResponse->data['qr'])) {
+                $qrData = $khqrResponse->data['qr'];
+                $md5Hash = $khqrResponse->data['md5'] ?? md5($qrData);
+            }
+        } catch (\Exception $e) {
+            Log::error('BakongKHQR SDK Generation Error: ' . $e->getMessage());
+        }
+
+        if (empty($qrData)) {
+            $qrData = $this->buildEMVCoKHQR($merchantId, $merchantName, $amount, $billNumber, $currency);
+            $md5Hash = md5($qrData);
+        }
 
         // Generate NBC Bakong Official Deeplink if token is available
         $deeplink = null;
@@ -146,11 +174,15 @@ class BakongPaymentController extends Controller
         // Tag 60: City (Must be PHNOM PENH in uppercase)
         $tag60 = "6010PHNOM PENH";
 
-        // Tag 62: Additional Data Field (Subtag 01 Bill Number)
-        $subtag62_01 = "01" . str_pad(strlen($billNumber), 2, '0', STR_PAD_LEFT) . $billNumber;
-        $tag62 = "62" . str_pad(strlen($subtag62_01), 2, '0', STR_PAD_LEFT) . $subtag62_01;
+        // Tag 99: Timestamps (Subtag 00 = Creation, Subtag 01 = Expiration)
+        $nowMs = (string) round(microtime(true) * 1000);
+        $expMs = (string) (round(microtime(true) * 1000) + (30 * 60 * 1000));
+        $subtag99_00 = "00" . str_pad(strlen($nowMs), 2, '0', STR_PAD_LEFT) . $nowMs;
+        $subtag99_01 = "01" . str_pad(strlen($expMs), 2, '0', STR_PAD_LEFT) . $expMs;
+        $tag99Val = $subtag99_00 . $subtag99_01;
+        $tag99 = "99" . str_pad(strlen($tag99Val), 2, '0', STR_PAD_LEFT) . $tag99Val;
 
-        $basePayload = "000201010212" . $accountTag . $tag52 . $tag53 . $tag54 . $tag58 . $tag59 . $tag60 . $tag62 . "6304";
+        $basePayload = "000201010212" . $accountTag . $tag52 . $tag53 . $tag54 . $tag58 . $tag59 . $tag60 . $tag62 . $tag99 . "6304";
 
         $crc = $this->calculateCRC16($basePayload);
 
