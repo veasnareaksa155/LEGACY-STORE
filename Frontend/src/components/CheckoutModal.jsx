@@ -256,7 +256,7 @@ const generateClientKhqr = (orderId, amount, currency = "USD") => {
       };
     }
   } catch (err) {
-    console.warn("Client BakongKHQR generation error:", err);
+    console.warn("Client BakongKHQR generation warning:", err);
   }
   const nowMs = now.toString();
   const expMs = expiration.toString();
