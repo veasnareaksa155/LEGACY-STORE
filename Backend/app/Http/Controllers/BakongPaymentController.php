@@ -35,12 +35,35 @@ class BakongPaymentController extends Controller
         $terminal = env('BAKONG_TERMINAL', 'WEB-STORE');
         $billNumber = 'LX' . str_pad($orderId, 6, '0', STR_PAD_LEFT);
 
-        $qrData = null;
-        $md5Hash = null;
+        // Generate 100% NBC Bakong Official Compliant Dynamic KHQR using Vendor Library
+        try {
+            $isKhr = strtoupper($currency) === 'KHR';
+            $individualInfo = new IndividualInfo(
+                $merchantId,
+                $merchantName,
+                'PHNOM PENH',
+                null,
+                null,
+                $isKhr ? KHQRData::CURRENCY_KHR : KHQRData::CURRENCY_USD,
+                $amount,
+                $billNumber,
+                $storeLabel,
+                $terminal,
+                $mobileNumber
+            );
+            $khqrResponse = BakongKHQR::generateIndividual($individualInfo);
+            if (isset($khqrResponse->data['qr']) && !empty($khqrResponse->data['qr'])) {
+                $qrData = $khqrResponse->data['qr'];
+                $md5Hash = strtolower($khqrResponse->data['md5'] ?? md5($qrData));
+            }
+        } catch (\Exception $e) {
+            Log::warning('BakongKHQR library generation warning: ' . $e->getMessage());
+        }
 
-        // Generate 100% NBC & EMVCo Compliant Dynamic KHQR (guarantees USD 2 decimal places e.g. 10.00 & Tag 99 timestamps for ABA Mobile)
-        $qrData = $this->buildEMVCoKHQR($merchantId, $merchantName, $amount, $billNumber, $currency);
-        $md5Hash = md5($qrData);
+        if (empty($qrData)) {
+            $qrData = $this->buildEMVCoKHQR($merchantId, $merchantName, $amount, $billNumber, $currency);
+            $md5Hash = strtolower(md5($qrData));
+        }
 
         // Generate NBC Bakong Official Deeplink if token is available
         $deeplink = null;
@@ -184,7 +207,7 @@ class BakongPaymentController extends Controller
             'manual' => 'nullable|boolean',
         ]);
 
-        $md5 = $validated['md5'];
+        $md5 = strtolower(trim($validated['md5']));
         $orderId = $validated['order_id'] ?? null;
         $isManual = filter_var($request->input('manual', false), FILTER_VALIDATE_BOOLEAN);
 
