@@ -217,44 +217,7 @@ const generateClientKhqr = (orderId, amount, currency = "USD") => {
   const now = Date.now();
   const expiration = now + 30 * 60 * 1000;
 
-  try {
-    const optionalData = {
-      currency: isKhr ? BakongData.currency.khr : BakongData.currency.usd,
-      amount: numAmount,
-      billNumber: billNum,
-      storeLabel: "Paris Atelier",
-      terminalLabel: "WEB-STORE",
-      mobileNumber: "855885232761",
-      timestamp: now,
-      expirationTimestamp: expiration,
-    };
-
-    const individualInfo = new IndividualInfo(
-      "veasna_reaksa@bkrt",
-      "REAKSA VEASNA",
-      "Phnom Penh",
-      optionalData,
-    );
-
-    const khqr = new BakongKHQR();
-    const response = khqr.generateIndividual(individualInfo);
-
-    if (response && response.data && response.data.qr) {
-      return {
-        order_id: orderId,
-        amount: numAmount,
-        currency: currency,
-        bill_number: billNum,
-        md5: response.data.md5 || calculateMd5(response.data.qr),
-        qr_string: response.data.qr,
-        merchant_name: "REAKSA VEASNA",
-        merchant_id: "veasna_reaksa@bkrt",
-      };
-    }
-  } catch (err) {
-    console.warn("Client BakongKHQR generation error:", err);
-  }
-
+  // Standard EMVCo & NBC KHQR Payload Structure (USD requires 2 decimal places e.g. 20.00 for ABA Mobile)
   const formattedAmt = isKhr
     ? String(Math.round(numAmount))
     : numAmount.toFixed(2);
@@ -271,21 +234,13 @@ const generateClientKhqr = (orderId, amount, currency = "USD") => {
     "54" + String(formattedAmt.length).padStart(2, "0") + formattedAmt;
   const tag58 = "5802KH";
   const tag59 = "5913REAKSA VEASNA";
-  const tag60 = "6010Phnom Penh";
+  const tag60 = "6010PHNOM PENH";
 
   const mobileNum = "855885232761";
-  const storeLabel = "Paris Atelier";
-  const terminalLabel = "WEB-STORE";
-
   const subtag62_01 = "01" + String(billNum.length).padStart(2, "0") + billNum;
   const subtag62_02 =
     "02" + String(mobileNum.length).padStart(2, "0") + mobileNum;
-  const subtag62_03 =
-    "03" + String(storeLabel.length).padStart(2, "0") + storeLabel;
-  const subtag62_07 =
-    "07" + String(terminalLabel.length).padStart(2, "0") + terminalLabel;
-  const subtag62Val =
-    subtag62_01 + subtag62_02 + subtag62_03 + subtag62_07;
+  const subtag62Val = subtag62_01 + subtag62_02;
   const tag62 =
     "62" + String(subtag62Val.length).padStart(2, "0") + subtag62Val;
 
@@ -548,10 +503,12 @@ const CheckoutModal = ({
       }
     } catch (error) {
       setLoading(false);
+      const serverMsg =
+        error.response?.data?.message ||
+        "Could not process order. Please try again or check network connection.";
       notification.error({
         message: "Order Submission Failed",
-        description:
-          "Could not process order. Please try again or check network connection.",
+        description: serverMsg,
         placement: "bottomRight",
       });
     }

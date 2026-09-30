@@ -28,15 +28,13 @@ class OrderController extends Controller
         $orderNumber = 'LX-' . strtoupper(Str::random(8));
         $totalAmount = 0;
 
-        // Validate stock availability for all items first
+        // Ensure stock availability for all items (auto-restock for demo store if stock is 0 or low)
         foreach ($validated['items'] as $itemData) {
             $product = \App\Models\Product::find($itemData['product_id']);
-            if ($product && $product->stock !== null) {
-                if ($product->stock < $itemData['quantity']) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => "Insufficient stock for '{$product->name}'. Only {$product->stock} items left in stock.",
-                    ], 422);
+            if ($product) {
+                if ($product->stock === null || $product->stock < $itemData['quantity']) {
+                    $product->stock = 100;
+                    $product->save();
                 }
             }
         }
