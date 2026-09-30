@@ -194,6 +194,19 @@ class BakongPaymentController extends Controller
         }
         $bakongToken = env('BAKONG_TOKEN', null);
 
+        // 0. Check if Order has already been marked as paid/processing in Database
+        if (!empty($orderId)) {
+            $order = Order::find($orderId);
+            if ($order && in_array(strtolower($order->status), ['processing', 'completed', 'paid', 'shipped', 'delivered'])) {
+                return response()->json([
+                    'status' => 'success',
+                    'paid' => true,
+                    'message' => 'Payment confirmed!',
+                    'md5' => $md5
+                ]);
+            }
+        }
+
         // 1. If Bakong Token is present, verify with NBC Bakong Open API
         if (!empty($bakongToken)) {
             try {
