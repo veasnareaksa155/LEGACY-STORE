@@ -345,16 +345,32 @@ export const generateBakongKhqr = async (orderId, amount, currency = "USD") => {
   }
 };
 
-export const checkBakongPaymentStatus = async (md5, orderId = null) => {
+export const checkBakongPaymentStatus = async (
+  md5,
+  orderId = null,
+  manual = false,
+) => {
   try {
-    const response = await api.post("/bakong/check-status", {
+    const payload = {
       md5,
       order_id: orderId,
-    });
-    return response.data;
+      manual: Boolean(manual),
+    };
+    try {
+      return await requestFetch("/bakong/check-status", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    } catch (e) {
+      const response = await api.post("/bakong/check-status", payload);
+      return response.data;
+    }
   } catch (error) {
-    console.error("Error checking Bakong payment status:", error);
-    throw error;
+    console.warn(
+      "Error checking Bakong payment status:",
+      error?.message || error,
+    );
+    return { paid: false, status: "pending", message: "Polling..." };
   }
 };
 

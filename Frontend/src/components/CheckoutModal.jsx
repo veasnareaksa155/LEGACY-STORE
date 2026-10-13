@@ -237,10 +237,17 @@ const generateClientKhqr = (orderId, amount, currency = "USD") => {
   const tag60 = "6010PHNOM PENH";
 
   const mobileNum = "855885232761";
+  const storeLabel = "Paris Atelier";
+  const terminalLabel = "WEB-STORE";
+
   const subtag62_01 = "01" + String(billNum.length).padStart(2, "0") + billNum;
   const subtag62_02 =
     "02" + String(mobileNum.length).padStart(2, "0") + mobileNum;
-  const subtag62Val = subtag62_01 + subtag62_02;
+  const subtag62_03 =
+    "03" + String(storeLabel.length).padStart(2, "0") + storeLabel;
+  const subtag62_07 =
+    "07" + String(terminalLabel.length).padStart(2, "0") + terminalLabel;
+  const subtag62Val = subtag62_01 + subtag62_02 + subtag62_03 + subtag62_07;
   const tag62 =
     "62" + String(subtag62Val.length).padStart(2, "0") + subtag62Val;
 
@@ -620,6 +627,7 @@ const CheckoutModal = ({
         const res = await checkBakongPaymentStatus(
           khqrData.md5,
           currentOrder?.id,
+          true,
         );
         if (res && res.paid) {
           setTimeout(() => {
@@ -1278,14 +1286,19 @@ const CheckoutModal = ({
                   Please wait a moment
                 </span>
               </div>
+            ) : !khqrData?.qr_string ? (
+              <div className="w-[230px] h-[230px] flex flex-col items-center justify-center bg-neutral-50 rounded-xl space-y-3 text-neutral-400">
+                <SyncOutlined spin className="text-3xl text-red-500" />
+                <span className="font-mono text-xs font-bold text-neutral-600">Generating Dynamic KHQR...</span>
+              </div>
             ) : (
               <QRCode
-                value={khqrData?.qr_string || ""}
+                value={khqrData.qr_string}
                 size={230}
                 color="#000000"
                 bgColor="#ffffff"
                 errorLevel="M"
-                bordered={true}
+                bordered={false}
               />
             )}
             <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] font-mono text-neutral-500 font-bold uppercase">

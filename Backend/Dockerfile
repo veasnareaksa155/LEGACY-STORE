@@ -1,15 +1,16 @@
 FROM php:8.3-cli-alpine
 
-# Install system dependencies & PostgreSQL/MySQL drivers
+# Install system dependencies & PostgreSQL/MySQL/SQLite drivers
 RUN apk add --no-cache \
     postgresql-dev \
+    sqlite-dev \
     libpng-dev \
     libzip-dev \
     zip \
     unzip \
     git \
     curl \
-    && docker-php-ext-install pdo pdo_pgsql pdo_mysql bcmath zip gd
+    && docker-php-ext-install pdo pdo_pgsql pdo_mysql pdo_sqlite bcmath zip gd
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer

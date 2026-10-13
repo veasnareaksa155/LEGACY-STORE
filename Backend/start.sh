@@ -11,6 +11,10 @@ php artisan config:clear
 php artisan route:clear
 php artisan package:discover --ansi
 
+mkdir -p /app/database
+touch /app/database/database.sqlite
+chmod 777 /app/database /app/database/database.sqlite || true
+
 # Execute database migrations & default seeds safely
 (php artisan migrate --force || true)
 (php artisan db:seed --force || true)

@@ -35,35 +35,9 @@ class BakongPaymentController extends Controller
         $terminal = env('BAKONG_TERMINAL', 'WEB-STORE');
         $billNumber = 'LX' . str_pad($orderId, 6, '0', STR_PAD_LEFT);
 
-        // Generate 100% NBC Bakong Official Compliant Dynamic KHQR using Vendor Library
-        try {
-            $isKhr = strtoupper($currency) === 'KHR';
-            $individualInfo = new IndividualInfo(
-                $merchantId,
-                $merchantName,
-                'PHNOM PENH',
-                null,
-                null,
-                $isKhr ? KHQRData::CURRENCY_KHR : KHQRData::CURRENCY_USD,
-                $amount,
-                $billNumber,
-                $storeLabel,
-                $terminal,
-                $mobileNumber
-            );
-            $khqrResponse = BakongKHQR::generateIndividual($individualInfo);
-            if (isset($khqrResponse->data['qr']) && !empty($khqrResponse->data['qr'])) {
-                $qrData = $khqrResponse->data['qr'];
-                $md5Hash = strtolower($khqrResponse->data['md5'] ?? md5($qrData));
-            }
-        } catch (\Exception $e) {
-            Log::warning('BakongKHQR library generation warning: ' . $e->getMessage());
-        }
-
-        if (empty($qrData)) {
-            $qrData = $this->buildEMVCoKHQR($merchantId, $merchantName, $amount, $billNumber, $currency);
-            $md5Hash = strtolower(md5($qrData));
-        }
+        // Generate 100% NBC & EMVCo Compliant Dynamic KHQR (guarantees USD 2 decimal places e.g. 10.00 & Tag 99 timestamps for ABA Mobile & Bakong App)
+        $qrData = $this->buildEMVCoKHQR($merchantId, $merchantName, $amount, $billNumber, $currency);
+        $md5Hash = strtolower(md5($qrData));
 
         // Generate NBC Bakong Official Deeplink if token is available
         $deeplink = null;
@@ -219,14 +193,18 @@ class BakongPaymentController extends Controller
 
         // 0. Check if Order has already been marked as paid/processing in Database
         if (!empty($orderId)) {
-            $order = Order::find($orderId);
-            if ($order && in_array(strtolower($order->status), ['processing', 'completed', 'paid', 'shipped', 'delivered'])) {
-                return response()->json([
-                    'status' => 'success',
-                    'paid' => true,
-                    'message' => 'Payment confirmed!',
-                    'md5' => $md5
-                ]);
+            try {
+                $order = Order::find($orderId);
+                if ($order && in_array(strtolower($order->status), ['processing', 'completed', 'paid', 'shipped', 'delivered'])) {
+                    return response()->json([
+                        'status' => 'success',
+                        'paid' => true,
+                        'message' => 'Payment confirmed!',
+                        'md5' => $md5
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('DB check order error: ' . $e->getMessage());
             }
         }
 
@@ -249,11 +227,15 @@ class BakongPaymentController extends Controller
                     if (($responseCode === 0 || $responseCode === '0') && !empty($resData['data'])) {
                         // Payment confirmed on Bakong Network!
                         if (!empty($orderId)) {
-                            $order = Order::find($orderId);
-                            if ($order) {
-                                $order->status = 'Processing';
-                                $order->payment_method = 'bakong';
-                                $order->save();
+                            try {
+                                $order = Order::find($orderId);
+                                if ($order) {
+                                    $order->status = 'Processing';
+                                    $order->payment_method = 'bakong';
+                                    $order->save();
+                                }
+                            } catch (\Throwable $e) {
+                                Log::warning('DB update order error: ' . $e->getMessage());
                             }
                         }
 
@@ -265,7 +247,7 @@ class BakongPaymentController extends Controller
                         ]);
                     }
                 }
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 Log::error('Bakong check transaction error: ' . $e->getMessage());
             }
         }
@@ -273,11 +255,15 @@ class BakongPaymentController extends Controller
         // 2. If user explicitly clicked manual verification or button confirm
         if ($isManual) {
             if (!empty($orderId)) {
-                $order = Order::find($orderId);
-                if ($order) {
-                    $order->status = 'Processing';
-                    $order->payment_method = 'bakong';
-                    $order->save();
+                try {
+                    $order = Order::find($orderId);
+                    if ($order) {
+                        $order->status = 'Processing';
+                        $order->payment_method = 'bakong';
+                        $order->save();
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('DB manual update order error: ' . $e->getMessage());
                 }
             }
 
