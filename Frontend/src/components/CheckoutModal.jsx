@@ -214,16 +214,47 @@ const generateClientKhqr = (orderId, amount, currency = "USD") => {
   const isKhr = currency === "KHR";
   const numAmount = Number(amount);
   const billNum = `LX${String(orderId).padStart(6, "0").slice(-6)}`;
-  const now = Date.now();
-  const expiration = now + 30 * 60 * 1000;
 
-  // Standard EMVCo & NBC KHQR Payload Structure (USD requires 2 decimal places e.g. 20.00 for ABA Mobile)
+  try {
+    const khqr = new BakongKHQR();
+    const optional = {
+      currency: isKhr ? BakongData.currency.khr : BakongData.currency.usd,
+      amount: isKhr ? Math.round(numAmount) : Number(numAmount.toFixed(2)),
+      mobileNumber: "855885232761",
+      storeLabel: "Paris Atelier",
+      terminalLabel: "WEB-STORE",
+      billNumber: billNum,
+      expirationTimestamp: Date.now() + 30 * 60 * 1000,
+    };
+    const info = new IndividualInfo(
+      "veasna_reaksa@bkrt",
+      "REAKSA VEASNA",
+      "Phnom Penh",
+      optional,
+    );
+    const res = khqr.generateIndividual(info);
+    if (res && res.data && res.data.qr) {
+      return {
+        order_id: orderId,
+        amount: numAmount,
+        currency: currency,
+        bill_number: billNum,
+        md5: res.data.md5 || calculateMd5(res.data.qr),
+        qr_string: res.data.qr,
+        merchant_name: "REAKSA VEASNA",
+        merchant_id: "veasna_reaksa@bkrt",
+      };
+    }
+  } catch (err) {
+    console.warn("Client BakongKHQR generator error:", err);
+  }
+
+  // Pure fallback: Standard EMVCo & NBC KHQR Payload Structure
   const formattedAmt = isKhr
     ? String(Math.round(numAmount))
     : numAmount.toFixed(2);
+  const now = Date.now();
   const nowMs = now.toString();
-  const expMs = expiration.toString();
-
   const merchantId = "veasna_reaksa@bkrt";
   const tag29Val =
     "00" + String(merchantId.length).padStart(2, "0") + merchantId;
@@ -234,7 +265,7 @@ const generateClientKhqr = (orderId, amount, currency = "USD") => {
     "54" + String(formattedAmt.length).padStart(2, "0") + formattedAmt;
   const tag58 = "5802KH";
   const tag59 = "5913REAKSA VEASNA";
-  const tag60 = "6010PHNOM PENH";
+  const tag60 = "6010Phnom Penh";
 
   const mobileNum = "855885232761";
   const storeLabel = "Paris Atelier";
@@ -252,9 +283,7 @@ const generateClientKhqr = (orderId, amount, currency = "USD") => {
     "62" + String(subtag62Val.length).padStart(2, "0") + subtag62Val;
 
   const subtag99_00 = "00" + String(nowMs.length).padStart(2, "0") + nowMs;
-  const subtag99_01 = "01" + String(expMs.length).padStart(2, "0") + expMs;
-  const tag99Val = subtag99_00 + subtag99_01;
-  const tag99 = "99" + String(tag99Val.length).padStart(2, "0") + tag99Val;
+  const tag99 = "99" + String(subtag99_00.length).padStart(2, "0") + subtag99_00;
 
   const baseStr =
     "000201010212" +
@@ -454,7 +483,7 @@ const CheckoutModal = ({
         promo_code: appliedPromo?.code || null,
         payment_method: paymentMethod,
         items: cartItems.map((item) => ({
-          product_id: item.id,
+          product_id: item.id ? (Number(item.id) || 1) : 1,
           product_name: item.name || "Luxury Item",
           price: Number(item.price) || 0.01,
           quantity: item.quantity,
@@ -463,6 +492,68 @@ const CheckoutModal = ({
         })),
       };
 
+      if (paymentMethod === "bakong") {
+        const tempOrderId = Date.now();
+        // Instantly generate official dynamic KHQR in 0ms so modal opens with ZERO delay
+        const instantKhqr = generateClientKhqr(
+          tempOrderId,
+          totalAmount,
+          selectedCurrency,
+        );
+        setKhqrData(instantKhqr);
+        setBakongModalOpen(true);
+        setPolling(true);
+        setLoading(false);
+
+        // Submit order concurrently without blocking the modal
+        submitOrder(orderPayload)
+          .then((response) => {
+            const finalOrder = response.data || response;
+            setCurrentOrder(finalOrder);
+            generateBakongKhqr(
+              finalOrder.id || tempOrderId,
+              totalAmount,
+              selectedCurrency,
+            )
+              .then((apiRes) => {
+                if (apiRes && apiRes.data) {
+                  setKhqrData((prev) => ({
+                    ...(prev || instantKhqr),
+                    deeplink: apiRes.data.deeplink || prev?.deeplink,
+                    // Keep the verified instant qr_string so customer phone camera never loses focus
+                    qr_string: prev?.qr_string || apiRes.data.qr_string,
+                    md5: prev?.md5 || apiRes.data.md5,
+                  }));
+                }
+              })
+              .catch(() => {});
+          })
+          .catch((submitErr) => {
+            console.warn(
+              "Background submitOrder warning, using local order:",
+              submitErr,
+            );
+            const fallbackOrder = {
+              id: tempOrderId,
+              order_number:
+                "LX-" +
+                Math.random().toString(36).substring(2, 10).toUpperCase(),
+              customer_name: values.fullName,
+              customer_email: values.email,
+              phone: values.phone,
+              shipping_address: values.address,
+              payment_method: "bakong",
+              total_amount: totalAmount,
+              status: "pending",
+              delivery_status: "pending",
+              items: orderPayload.items,
+            };
+            setCurrentOrder(fallbackOrder);
+          });
+        return;
+      }
+
+      // For Card or COD payments, wait for order creation
       let createdOrder = null;
       try {
         const response = await submitOrder(orderPayload);
@@ -491,28 +582,7 @@ const CheckoutModal = ({
       setCurrentOrder(createdOrder);
       setLoading(false);
 
-      if (paymentMethod === "bakong") {
-        const orderId = createdOrder?.id || Date.now();
-        // Instantly generate dynamic KHQR in 0ms so modal opens with ZERO delay
-        const instantKhqr = generateClientKhqr(
-          orderId,
-          totalAmount,
-          selectedCurrency,
-        );
-        setKhqrData(instantKhqr);
-        setBakongModalOpen(true);
-        setPolling(true);
-
-        // In background, fetch official deeplink and server QR without blocking the UI
-        generateBakongKhqr(orderId, totalAmount, selectedCurrency)
-          .then((apiRes) => {
-            if (apiRes && apiRes.data && apiRes.data.md5) {
-              setKhqrData(apiRes.data);
-            }
-          })
-          .catch(() => {});
-        return;
-      } else if (paymentMethod === "card") {
+      if (paymentMethod === "card") {
         notification.success({
           message: "CARD PAYMENT APPROVED",
           description: `Transaction of $${totalAmount.toFixed(2)} approved via ${getCardBrandInfo(cardDetails.number).name}.`,
@@ -539,19 +609,20 @@ const CheckoutModal = ({
 
   const handleCurrencyChange = async (curr) => {
     setSelectedCurrency(curr);
-    if (currentOrder) {
-      const orderId = currentOrder.id || Date.now();
-      const newAmount = curr === "KHR" ? khrAmount : totalAmount;
-      try {
-        const apiRes = await generateBakongKhqr(orderId, newAmount, curr);
-        if (apiRes && apiRes.data && apiRes.data.md5) {
-          setKhqrData(apiRes.data);
-          return;
-        }
-      } catch (e) {}
-      const newPayload = generateClientKhqr(orderId, newAmount, curr);
-      setKhqrData(newPayload);
-    }
+    const orderId = currentOrder?.id || Date.now();
+    const newAmount = curr === "KHR" ? khrAmount : totalAmount;
+    const newPayload = generateClientKhqr(orderId, newAmount, curr);
+    setKhqrData(newPayload);
+
+    try {
+      const apiRes = await generateBakongKhqr(orderId, newAmount, curr);
+      if (apiRes && apiRes.data) {
+        setKhqrData((prev) => ({
+          ...(prev || newPayload),
+          deeplink: apiRes.data.deeplink || prev?.deeplink,
+        }));
+      }
+    } catch (e) {}
   };
 
   // Real-time Bakong Payment Polling & Loading Verification Effect

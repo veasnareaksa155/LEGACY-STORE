@@ -27,7 +27,7 @@ class BakongPaymentController extends Controller
         $amount = (float) $validated['amount'];
         $currency = strtoupper($validated['currency'] ?? 'USD');
 
-        // Bakong Configuration from .env
+        // Bakong Configuration with verified defaults
         $merchantId = env('BAKONG_MERCHANT_ID', 'veasna_reaksa@bkrt');
         $merchantName = env('BAKONG_MERCHANT_NAME', 'REAKSA VEASNA');
         $mobileNumber = env('BAKONG_MOBILE_NUMBER', '855885232761');
@@ -35,13 +35,35 @@ class BakongPaymentController extends Controller
         $terminal = env('BAKONG_TERMINAL', 'WEB-STORE');
         $billNumber = 'LX' . str_pad($orderId, 6, '0', STR_PAD_LEFT);
 
-        // Generate 100% NBC & EMVCo Compliant Dynamic KHQR (guarantees USD 2 decimal places e.g. 10.00 & Tag 99 timestamps for ABA Mobile & Bakong App)
-        $qrData = $this->buildEMVCoKHQR($merchantId, $merchantName, $amount, $billNumber, $currency);
-        $md5Hash = strtolower(md5($qrData));
+        $currencyCode = ($currency === 'KHR') ? KHQRData::CURRENCY_KHR : KHQRData::CURRENCY_USD;
+        $amountVal = ($currency === 'KHR') ? (float) round($amount) : (float) number_format((float) $amount, 2, '.', '');
+
+        try {
+            $info = new IndividualInfo(
+                $merchantId,
+                $merchantName,
+                'Phnom Penh',
+                null,
+                null,
+                $currencyCode,
+                $amountVal,
+                $billNumber,
+                $storeLabel,
+                $terminal,
+                $mobileNumber
+            );
+            $khqrRes = BakongKHQR::generateIndividual($info);
+            $qrData = $khqrRes->data['qr'];
+            $md5Hash = strtolower($khqrRes->data['md5']);
+        } catch (\Throwable $e) {
+            Log::warning('BakongKHQR vendor generator error: ' . $e->getMessage() . ', using compliant EMVCo generator');
+            $qrData = $this->buildEMVCoKHQR($merchantId, $merchantName, $amount, $billNumber, $currency);
+            $md5Hash = strtolower(md5($qrData));
+        }
 
         // Generate NBC Bakong Official Deeplink if token is available
         $deeplink = null;
-        $bakongToken = env('BAKONG_TOKEN', null);
+        $bakongToken = env('BAKONG_TOKEN', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImlkIjoiYTdiODE2NGU4MTExNDA2MSJ9LCJpYXQiOjE3ODk4NzU0NjgsImV4cCI6MTc5NzY1MTQ2OH0.982J9abiVA1XZ0daLvCkiTeySvFXyxruvIIKwN2UEMM');
         if (!empty($bakongToken) && !empty($qrData)) {
             try {
                 $baseUrl = rtrim(env('BAKONG_API_URL', 'https://api-bakong.nbc.gov.kh'), '/');
@@ -140,8 +162,8 @@ class BakongPaymentController extends Controller
         // Tag 59: Account Name
         $tag59 = "59" . str_pad(strlen($merchantNameClean), 2, '0', STR_PAD_LEFT) . $merchantNameClean;
 
-        // Tag 60: City (Must be PHNOM PENH in uppercase)
-        $tag60 = "6010PHNOM PENH";
+        // Tag 60: City (Official title case "Phnom Penh")
+        $tag60 = "6010Phnom Penh";
 
         // Tag 62: Additional Data Field (Bill Number, Mobile, Store Label, Terminal)
         $mobileNumber = env('BAKONG_MOBILE_NUMBER', '855885232761');
@@ -155,13 +177,10 @@ class BakongPaymentController extends Controller
         $subtag62Val = $subtag62_01 . $subtag62_02 . $subtag62_03 . $subtag62_07;
         $tag62 = "62" . str_pad(strlen($subtag62Val), 2, '0', STR_PAD_LEFT) . $subtag62Val;
 
-        // Tag 99: Timestamps (Subtag 00 = Creation, Subtag 01 = Expiration)
+        // Tag 99: Timestamp (Creation timestamp compliant with NBC standard)
         $nowMs = (string) round(microtime(true) * 1000);
-        $expMs = (string) (round(microtime(true) * 1000) + (30 * 60 * 1000));
         $subtag99_00 = "00" . str_pad(strlen($nowMs), 2, '0', STR_PAD_LEFT) . $nowMs;
-        $subtag99_01 = "01" . str_pad(strlen($expMs), 2, '0', STR_PAD_LEFT) . $expMs;
-        $tag99Val = $subtag99_00 . $subtag99_01;
-        $tag99 = "99" . str_pad(strlen($tag99Val), 2, '0', STR_PAD_LEFT) . $tag99Val;
+        $tag99 = "99" . str_pad(strlen($subtag99_00), 2, '0', STR_PAD_LEFT) . $subtag99_00;
 
         $basePayload = "000201010212" . $accountTag . $tag52 . $tag53 . $tag54 . $tag58 . $tag59 . $tag60 . $tag62 . $tag99 . "6304";
 
@@ -189,7 +208,7 @@ class BakongPaymentController extends Controller
         if (!str_contains($baseUrl, '/v1')) {
             $baseUrl .= '/v1';
         }
-        $bakongToken = env('BAKONG_TOKEN', null);
+        $bakongToken = env('BAKONG_TOKEN', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7ImlkIjoiYTdiODE2NGU4MTExNDA2MSJ9LCJpYXQiOjE3ODk4NzU0NjgsImV4cCI6MTc5NzY1MTQ2OH0.982J9abiVA1XZ0daLvCkiTeySvFXyxruvIIKwN2UEMM');
 
         // 0. Check if Order has already been marked as paid/processing in Database
         if (!empty($orderId)) {

@@ -19,7 +19,7 @@ class OrderController extends Controller
             'shipping_address' => 'required|string',
             'payment_method' => 'nullable|string',
             'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required',
+            'items.*.product_id' => 'nullable',
             'items.*.product_name' => 'nullable|string',
             'items.*.price' => 'nullable|numeric',
             'items.*.quantity' => 'required|integer|min:1',
@@ -32,7 +32,8 @@ class OrderController extends Controller
 
         // Validate stock availability for all items first (auto-restock for demo/test items)
         foreach ($validated['items'] as $itemData) {
-            $product = \App\Models\Product::find($itemData['product_id']);
+            $productId = !empty($itemData['product_id']) ? $itemData['product_id'] : null;
+            $product = $productId ? \App\Models\Product::find($productId) : null;
             if ($product && $product->stock !== null) {
                 if ($product->stock < $itemData['quantity']) {
                     $product->stock = max(100, $product->stock + 100);
@@ -59,7 +60,8 @@ class OrderController extends Controller
         ]);
 
         foreach ($validated['items'] as $itemData) {
-            $product = \App\Models\Product::find($itemData['product_id']);
+            $productId = !empty($itemData['product_id']) ? $itemData['product_id'] : null;
+            $product = $productId ? \App\Models\Product::find($productId) : null;
             $itemPrice = $product ? (float)$product->price : (float)($itemData['price'] ?? 0.01);
             $productName = $product ? $product->name : ($itemData['product_name'] ?? 'Luxury Product');
             $subtotal = $itemPrice * $itemData['quantity'];

@@ -14,8 +14,11 @@ use App\Http\Controllers\ReviewController;
 |--------------------------------------------------------------------------
 */
 
-// Authentication Route
+// Authentication Routes
 Route::post('/login', [UserController::class, 'login']);
+Route::post('/register', [UserController::class, 'store']);
+Route::post('/auth/login', [UserController::class, 'login']);
+Route::post('/auth/register', [UserController::class, 'store']);
 
 // Category Routes
 Route::get('/categories', [CategoryController::class, 'index']);
