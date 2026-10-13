@@ -16,6 +16,7 @@ touch /app/database/database.sqlite
 chmod 777 /app/database /app/database/database.sqlite || true
 
 # Execute database migrations & default seeds safely
+(php artisan migrate --database=sqlite --force || true)
 (php artisan migrate --force || true)
 (php artisan db:seed --force || true)
 

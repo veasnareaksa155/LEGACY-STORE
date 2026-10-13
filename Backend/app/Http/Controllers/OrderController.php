@@ -67,7 +67,7 @@ class OrderController extends Controller
 
             OrderItem::create([
                 'order_id' => $order->id,
-                'product_id' => $product ? $product->id : (is_numeric($itemData['product_id']) ? $itemData['product_id'] : 1),
+                'product_id' => $product ? $product->id : null,
                 'product_name' => $productName,
                 'price' => $itemPrice,
                 'quantity' => $itemData['quantity'],
