@@ -492,33 +492,26 @@ const CheckoutModal = ({
       setLoading(false);
 
       if (paymentMethod === "bakong") {
-        const orderId = createdOrder.id || Date.now();
-        try {
-          const apiRes = await generateBakongKhqr(
-            orderId,
-            totalAmount,
-            selectedCurrency,
-          );
-          if (apiRes && apiRes.data && apiRes.data.md5) {
-            setKhqrData(apiRes.data);
-          } else {
-            const clientPayload = generateClientKhqr(
-              orderId,
-              totalAmount,
-              selectedCurrency,
-            );
-            setKhqrData(clientPayload);
-          }
-        } catch (e) {
-          const clientPayload = generateClientKhqr(
-            orderId,
-            totalAmount,
-            selectedCurrency,
-          );
-          setKhqrData(clientPayload);
-        }
+        const orderId = createdOrder?.id || Date.now();
+        // Instantly generate dynamic KHQR in 0ms so modal opens with ZERO delay
+        const instantKhqr = generateClientKhqr(
+          orderId,
+          totalAmount,
+          selectedCurrency,
+        );
+        setKhqrData(instantKhqr);
         setBakongModalOpen(true);
         setPolling(true);
+
+        // In background, fetch official deeplink and server QR without blocking the UI
+        generateBakongKhqr(orderId, totalAmount, selectedCurrency)
+          .then((apiRes) => {
+            if (apiRes && apiRes.data && apiRes.data.md5) {
+              setKhqrData(apiRes.data);
+            }
+          })
+          .catch(() => {});
+        return;
       } else if (paymentMethod === "card") {
         notification.success({
           message: "CARD PAYMENT APPROVED",

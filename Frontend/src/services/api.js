@@ -10,24 +10,33 @@ const api = axios.create({
     "Content-Type": "application/json",
     Accept: "application/json",
   },
-  timeout: 30000,
+  timeout: 6000,
 });
 
-// Resilient native fetch helper (bypasses buggy browser extension XHR monkey-patches)
+// Resilient native fetch helper with 6-second timeout
 const requestFetch = async (endpoint, options = {}) => {
-  const url = `${API_BASE_URL}${endpoint}`;
-  const response = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      ...(options.headers || {}),
-    },
-    ...options,
-  });
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 6000);
+  try {
+    const url = `${API_BASE_URL}${endpoint}`;
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        ...(options.headers || {}),
+      },
+      ...options,
+    });
+    clearTimeout(timeoutId);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
   }
-  return await response.json();
 };
 
 export const fetchCategories = async () => {

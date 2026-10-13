@@ -49,7 +49,7 @@ class BakongPaymentController extends Controller
                     $baseUrl .= '/v1';
                 }
 
-                $deepRes = Http::withToken($bakongToken)
+                $deepRes = Http::timeout(3)->withToken($bakongToken)
                     ->post("{$baseUrl}/generate_deeplink_by_qr", [
                         'qr' => $qrData,
                         'sourceInfo' => [
@@ -213,7 +213,7 @@ class BakongPaymentController extends Controller
             try {
                 Log::info("Bakong checking payment MD5: {$md5} for Order ID: " . ($orderId ?? 'N/A'));
 
-                $response = Http::withToken($bakongToken)
+                $response = Http::timeout(3)->withToken($bakongToken)
                     ->post("{$baseUrl}/check_transaction_by_md5", [
                         'md5' => $md5
                     ]);
