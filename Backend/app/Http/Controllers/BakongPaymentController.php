@@ -203,7 +203,7 @@ class BakongPaymentController extends Controller
         // 0. Check if Order has already been marked as paid/processing in Database
         if (!empty($orderId)) {
             try {
-                $order = Order::find($orderId);
+                $order = Order::where('id', $orderId)->orWhere('order_number', $orderId)->first();
                 if ($order && in_array(strtolower($order->status), ['processing', 'completed', 'paid', 'shipped', 'delivered'])) {
                     return response()->json([
                         'status' => 'success',
@@ -240,7 +240,7 @@ class BakongPaymentController extends Controller
                             // Payment confirmed on Bakong Network!
                             if (!empty($orderId)) {
                                 try {
-                                    $order = Order::find($orderId);
+                                    $order = Order::where('id', $orderId)->orWhere('order_number', $orderId)->first();
                                     if ($order) {
                                         $order->status = 'Processing';
                                         $order->payment_method = 'bakong';
@@ -270,7 +270,7 @@ class BakongPaymentController extends Controller
         if ($isManual) {
             if (!empty($orderId)) {
                 try {
-                    $order = Order::find($orderId);
+                    $order = Order::where('id', $orderId)->orWhere('order_number', $orderId)->first();
                     if ($order) {
                         $order->status = 'Processing';
                         $order->payment_method = 'bakong';

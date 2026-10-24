@@ -494,7 +494,7 @@ const CheckoutModal = ({
         // Submit order concurrently without blocking the modal
         submitOrder(orderPayload)
           .then((response) => {
-            const finalOrder = response.data || response;
+            const finalOrder = response.data?.data || response.data || response;
             setCurrentOrder(finalOrder);
             generateBakongKhqr(
               finalOrder.id || tempOrderId,
@@ -504,12 +504,9 @@ const CheckoutModal = ({
               .then((apiRes) => {
                 if (apiRes && apiRes.data) {
                   setKhqrData((prev) => ({
-                    ...(prev || instantKhqr),
-                    deeplink: apiRes.data.deeplink || prev?.deeplink,
-                    // Keep the verified instant qr_string so customer phone camera never loses focus
-                    qr_string: prev?.qr_string || apiRes.data.qr_string,
-                    md5: prev?.md5 || apiRes.data.md5,
-                    backend_md5: apiRes.data.md5,
+                    ...apiRes.data,
+                    // Preserve instant client MD5 as fallback in case user already scanned
+                    client_md5: prev?.md5,
                   }));
                 }
               })
@@ -544,7 +541,7 @@ const CheckoutModal = ({
       let createdOrder = null;
       try {
         const response = await submitOrder(orderPayload);
-        createdOrder = response.data || response;
+        createdOrder = response.data?.data || response.data || response;
       } catch (submitErr) {
         console.warn(
           "Backend submitOrder warning, using resilient checkout session:",
@@ -605,9 +602,8 @@ const CheckoutModal = ({
       const apiRes = await generateBakongKhqr(orderId, newAmount, curr);
       if (apiRes && apiRes.data) {
         setKhqrData((prev) => ({
-          ...(prev || newPayload),
-          deeplink: apiRes.data.deeplink || prev?.deeplink,
-          backend_md5: apiRes.data.md5,
+          ...apiRes.data,
+          client_md5: prev?.md5,
         }));
       }
     } catch (e) {}
@@ -624,7 +620,7 @@ const CheckoutModal = ({
             khqrData.md5,
             currentOrder?.id,
             false,
-            khqrData.backend_md5,
+            khqrData.client_md5 || khqrData.backend_md5,
           );
           if (res && res.paid) {
             setPolling(false);
@@ -656,7 +652,7 @@ const CheckoutModal = ({
               khqrData.md5,
               currentOrder?.id,
               false,
-              khqrData.backend_md5,
+              khqrData.client_md5 || khqrData.backend_md5,
             );
             if (res && res.paid) {
               setPolling(false);
@@ -709,7 +705,7 @@ const CheckoutModal = ({
           khqrData.md5,
           currentOrder?.id,
           true,
-          khqrData.backend_md5,
+          khqrData.client_md5 || khqrData.backend_md5,
         );
         if (res && res.paid) {
           setTimeout(() => {
@@ -1374,10 +1370,11 @@ const CheckoutModal = ({
                 <span className="font-mono text-xs font-bold text-neutral-600">Generating Dynamic KHQR...</span>
               </div>
             ) : (
-              <div className="bg-white p-2.5 rounded-xl border border-neutral-200 inline-block">
+              <div className="bg-white p-3 rounded-xl border border-neutral-200 inline-block shadow-xs">
                 <QRCode
+                  type="svg"
                   value={khqrData.qr_string}
-                  size={240}
+                  size={250}
                   color="#000000"
                   bgColor="#ffffff"
                   errorLevel="M"
