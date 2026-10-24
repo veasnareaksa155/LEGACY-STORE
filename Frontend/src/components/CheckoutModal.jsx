@@ -615,9 +615,11 @@ const CheckoutModal = ({
   // Real-time Bakong Payment Polling & Loading Verification Effect
   useEffect(() => {
     let intervalId;
+    let pollCount = 0;
 
     if (polling && khqrData?.md5) {
       intervalId = setInterval(async () => {
+        pollCount++;
         try {
           const res = await checkBakongPaymentStatus(
             khqrData.md5,
@@ -634,13 +636,13 @@ const CheckoutModal = ({
               setTimeout(() => {
                 handleBakongCompleteSuccess();
               }, 1500);
-            }, 1200);
+            }, 1000);
             return;
           }
         } catch (e) {
           // Keep polling silently
         }
-      }, 2000);
+      }, 3000);
 
       // Trigger Bakong status check when user returns to browser tab from bank app
       const handleTabReturn = async () => {
@@ -666,7 +668,7 @@ const CheckoutModal = ({
                 setTimeout(() => {
                   handleBakongCompleteSuccess();
                 }, 1500);
-              }, 1200);
+              }, 1000);
             }
           } catch (e) {}
         }
