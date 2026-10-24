@@ -47,10 +47,7 @@ class BakongPaymentController extends Controller
                 null,
                 $currencyCode,
                 $amountVal,
-                $billNumber,
-                $storeLabel,
-                $terminal,
-                $mobileNumber
+                $billNumber
             );
             $khqrRes = BakongKHQR::generateIndividual($info);
             $qrData = $khqrRes->data['qr'];
@@ -76,8 +73,8 @@ class BakongPaymentController extends Controller
                         'qr' => $qrData,
                         'sourceInfo' => [
                             'appName' => 'Alexandre Luxe',
-                            'appIconUrl' => 'https://alexandre-luxe.onrender.com/favicon.svg',
-                            'appDeepLinkCallback' => 'https://alexandre-luxe.onrender.com'
+                            'appIconUrl' => 'https://legacy-store.onrender.com/favicon.svg',
+                            'appDeepLinkCallback' => 'https://legacy-store.onrender.com'
                         ]
                     ]);
 
@@ -165,17 +162,9 @@ class BakongPaymentController extends Controller
         // Tag 60: City (Official title case "Phnom Penh")
         $tag60 = "6010Phnom Penh";
 
-        // Tag 62: Additional Data Field (Bill Number, Mobile, Store Label, Terminal)
-        $mobileNumber = env('BAKONG_MOBILE_NUMBER', '855885232761');
-        $storeLabel = env('BAKONG_STORE_LABEL', 'Paris Atelier');
-        $terminalLabel = env('BAKONG_TERMINAL', 'WEB-STORE');
-
+        // Tag 62: Additional Data Field (Bill Number only for Individual Accounts)
         $subtag62_01 = "01" . str_pad(strlen($billNumber), 2, '0', STR_PAD_LEFT) . $billNumber;
-        $subtag62_02 = !empty($mobileNumber) ? "02" . str_pad(strlen($mobileNumber), 2, '0', STR_PAD_LEFT) . $mobileNumber : "";
-        $subtag62_03 = !empty($storeLabel) ? "03" . str_pad(strlen($storeLabel), 2, '0', STR_PAD_LEFT) . $storeLabel : "";
-        $subtag62_07 = !empty($terminalLabel) ? "07" . str_pad(strlen($terminalLabel), 2, '0', STR_PAD_LEFT) . $terminalLabel : "";
-        $subtag62Val = $subtag62_01 . $subtag62_02 . $subtag62_03 . $subtag62_07;
-        $tag62 = "62" . str_pad(strlen($subtag62Val), 2, '0', STR_PAD_LEFT) . $subtag62Val;
+        $tag62 = "62" . str_pad(strlen($subtag62_01), 2, '0', STR_PAD_LEFT) . $subtag62_01;
 
         // Tag 99: Timestamp (Creation timestamp compliant with NBC standard)
         $nowMs = (string) round(microtime(true) * 1000);
@@ -201,6 +190,7 @@ class BakongPaymentController extends Controller
         ]);
 
         $md5 = strtolower(trim($validated['md5']));
+        $altMd5 = strtolower(trim($request->input('alt_md5', '')));
         $orderId = $validated['order_id'] ?? null;
         $isManual = filter_var($request->input('manual', false), FILTER_VALIDATE_BOOLEAN);
 
@@ -227,47 +217,52 @@ class BakongPaymentController extends Controller
             }
         }
 
-        // 1. If Bakong Token is present, verify with NBC Bakong Open API
+        // 1. If Bakong Token is present, verify with NBC Bakong Open API (check primary and alternate MD5)
         if (!empty($bakongToken)) {
-            try {
-                Log::info("Bakong checking payment MD5: {$md5} for Order ID: " . ($orderId ?? 'N/A'));
+            $md5sToCheck = array_filter(array_unique([$md5, $altMd5]));
+            foreach ($md5sToCheck as $checkHash) {
+                if (empty($checkHash)) continue;
+                try {
+                    Log::info("Bakong checking payment MD5: {$checkHash} for Order ID: " . ($orderId ?? 'N/A'));
 
-                $response = Http::timeout(3)->withToken($bakongToken)
-                    ->post("{$baseUrl}/check_transaction_by_md5", [
-                        'md5' => $md5
-                    ]);
-
-                Log::info("Bakong API Response Status: " . $response->status() . " Body: " . $response->body());
-
-                if ($response->successful()) {
-                    $resData = $response->json();
-                    $responseCode = $resData['responseCode'] ?? ($resData['status']['code'] ?? null);
-
-                    if (($responseCode === 0 || $responseCode === '0') && !empty($resData['data'])) {
-                        // Payment confirmed on Bakong Network!
-                        if (!empty($orderId)) {
-                            try {
-                                $order = Order::find($orderId);
-                                if ($order) {
-                                    $order->status = 'Processing';
-                                    $order->payment_method = 'bakong';
-                                    $order->save();
-                                }
-                            } catch (\Throwable $e) {
-                                Log::warning('DB update order error: ' . $e->getMessage());
-                            }
-                        }
-
-                        return response()->json([
-                            'status' => 'success',
-                            'paid' => true,
-                            'message' => 'Payment confirmed on Bakong KHQR network!',
-                            'transaction' => $resData['data'] ?? []
+                    $response = Http::timeout(4)->withToken($bakongToken)
+                        ->post("{$baseUrl}/check_transaction_by_md5", [
+                            'md5' => $checkHash
                         ]);
+
+                    Log::info("Bakong API Response Status: " . $response->status() . " Body: " . $response->body());
+
+                    if ($response->successful()) {
+                        $resData = $response->json();
+                        $responseCode = $resData['responseCode'] ?? ($resData['status']['code'] ?? null);
+
+                        if (($responseCode === 0 || $responseCode === '0') && !empty($resData['data'])) {
+                            // Payment confirmed on Bakong Network!
+                            if (!empty($orderId)) {
+                                try {
+                                    $order = Order::find($orderId);
+                                    if ($order) {
+                                        $order->status = 'Processing';
+                                        $order->payment_method = 'bakong';
+                                        $order->save();
+                                    }
+                                } catch (\Throwable $e) {
+                                    Log::warning('DB update order error: ' . $e->getMessage());
+                                }
+                            }
+
+                            return response()->json([
+                                'status' => 'success',
+                                'paid' => true,
+                                'message' => 'Payment confirmed on Bakong KHQR network!',
+                                'transaction' => $resData['data'] ?? [],
+                                'md5' => $checkHash
+                            ]);
+                        }
                     }
+                } catch (\Throwable $e) {
+                    Log::error("Bakong check transaction error for {$checkHash}: " . $e->getMessage());
                 }
-            } catch (\Throwable $e) {
-                Log::error('Bakong check transaction error: ' . $e->getMessage());
             }
         }
 

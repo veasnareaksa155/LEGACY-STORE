@@ -2,7 +2,7 @@ import axios from "axios";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ||
-  "https://alexandre-luxe.onrender.com/api";
+  "https://legacy-store.onrender.com/api";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -358,10 +358,12 @@ export const checkBakongPaymentStatus = async (
   md5,
   orderId = null,
   manual = false,
+  altMd5 = null,
 ) => {
   try {
     const payload = {
       md5,
+      alt_md5: altMd5,
       order_id: orderId,
       manual: Boolean(manual),
     };

@@ -220,9 +220,6 @@ const generateClientKhqr = (orderId, amount, currency = "USD") => {
     const optional = {
       currency: isKhr ? BakongData.currency.khr : BakongData.currency.usd,
       amount: isKhr ? Math.round(numAmount) : Number(numAmount.toFixed(2)),
-      mobileNumber: "855885232761",
-      storeLabel: "Paris Atelier",
-      terminalLabel: "WEB-STORE",
       billNumber: billNum,
       expirationTimestamp: Date.now() + 30 * 60 * 1000,
     };
@@ -267,20 +264,9 @@ const generateClientKhqr = (orderId, amount, currency = "USD") => {
   const tag59 = "5913REAKSA VEASNA";
   const tag60 = "6010Phnom Penh";
 
-  const mobileNum = "855885232761";
-  const storeLabel = "Paris Atelier";
-  const terminalLabel = "WEB-STORE";
-
   const subtag62_01 = "01" + String(billNum.length).padStart(2, "0") + billNum;
-  const subtag62_02 =
-    "02" + String(mobileNum.length).padStart(2, "0") + mobileNum;
-  const subtag62_03 =
-    "03" + String(storeLabel.length).padStart(2, "0") + storeLabel;
-  const subtag62_07 =
-    "07" + String(terminalLabel.length).padStart(2, "0") + terminalLabel;
-  const subtag62Val = subtag62_01 + subtag62_02 + subtag62_03 + subtag62_07;
   const tag62 =
-    "62" + String(subtag62Val.length).padStart(2, "0") + subtag62Val;
+    "62" + String(subtag62_01.length).padStart(2, "0") + subtag62_01;
 
   const subtag99_00 = "00" + String(nowMs.length).padStart(2, "0") + nowMs;
   const tag99 = "99" + String(subtag99_00.length).padStart(2, "0") + subtag99_00;
@@ -523,6 +509,7 @@ const CheckoutModal = ({
                     // Keep the verified instant qr_string so customer phone camera never loses focus
                     qr_string: prev?.qr_string || apiRes.data.qr_string,
                     md5: prev?.md5 || apiRes.data.md5,
+                    backend_md5: apiRes.data.md5,
                   }));
                 }
               })
@@ -620,6 +607,7 @@ const CheckoutModal = ({
         setKhqrData((prev) => ({
           ...(prev || newPayload),
           deeplink: apiRes.data.deeplink || prev?.deeplink,
+          backend_md5: apiRes.data.md5,
         }));
       }
     } catch (e) {}
@@ -635,6 +623,8 @@ const CheckoutModal = ({
           const res = await checkBakongPaymentStatus(
             khqrData.md5,
             currentOrder?.id,
+            false,
+            khqrData.backend_md5,
           );
           if (res && res.paid) {
             setPolling(false);
@@ -665,6 +655,8 @@ const CheckoutModal = ({
             const res = await checkBakongPaymentStatus(
               khqrData.md5,
               currentOrder?.id,
+              false,
+              khqrData.backend_md5,
             );
             if (res && res.paid) {
               setPolling(false);
@@ -717,6 +709,7 @@ const CheckoutModal = ({
           khqrData.md5,
           currentOrder?.id,
           true,
+          khqrData.backend_md5,
         );
         if (res && res.paid) {
           setTimeout(() => {
@@ -1381,14 +1374,16 @@ const CheckoutModal = ({
                 <span className="font-mono text-xs font-bold text-neutral-600">Generating Dynamic KHQR...</span>
               </div>
             ) : (
-              <QRCode
-                value={khqrData.qr_string}
-                size={230}
-                color="#000000"
-                bgColor="#ffffff"
-                errorLevel="M"
-                bordered={false}
-              />
+              <div className="bg-white p-2.5 rounded-xl border border-neutral-200 inline-block">
+                <QRCode
+                  value={khqrData.qr_string}
+                  size={240}
+                  color="#000000"
+                  bgColor="#ffffff"
+                  errorLevel="M"
+                  bordered={false}
+                />
+              </div>
             )}
             <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] font-mono text-neutral-500 font-bold uppercase">
               {verifying ? (
@@ -1409,6 +1404,19 @@ const CheckoutModal = ({
               )}
             </div>
           </div>
+
+          {/* Official NBC Deeplink One-Tap Action for Mobile Users */}
+          {khqrData?.deeplink && (
+            <a
+              href={khqrData.deeplink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-mono font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition-transform active:scale-98"
+            >
+              <span className="text-base">📱</span>
+              <span>TAP TO PAY IN ABA / BAKONG APP</span>
+            </a>
+          )}
 
           {/* Copy Raw Dynamic Payload Link */}
           <div>
@@ -1438,7 +1446,7 @@ const CheckoutModal = ({
             </span>
             <div className="grid grid-cols-4 gap-1.5">
               <a
-                href="abamobile://"
+                href={khqrData?.deeplink || "abamobile://"}
                 target="_blank"
                 rel="noreferrer"
                 className="bg-sky-900 hover:bg-sky-950 text-white text-[9px] font-bold font-mono py-2 rounded-lg text-center block transition-colors shadow-2xs"
@@ -1446,7 +1454,7 @@ const CheckoutModal = ({
                 ABA Bank
               </a>
               <a
-                href="acledamobile://"
+                href={khqrData?.deeplink || "acledamobile://"}
                 target="_blank"
                 rel="noreferrer"
                 className="bg-blue-900 hover:bg-blue-950 text-white text-[9px] font-bold font-mono py-2 rounded-lg text-center block transition-colors shadow-2xs"
@@ -1454,7 +1462,7 @@ const CheckoutModal = ({
                 ACLEDA
               </a>
               <a
-                href="wingbank://"
+                href={khqrData?.deeplink || "wingbank://"}
                 target="_blank"
                 rel="noreferrer"
                 className="bg-lime-600 hover:bg-lime-700 text-white text-[9px] font-bold font-mono py-2 rounded-lg text-center block transition-colors shadow-2xs"
@@ -1462,7 +1470,7 @@ const CheckoutModal = ({
                 Wing
               </a>
               <a
-                href="bakong://"
+                href={khqrData?.deeplink || "bakong://"}
                 target="_blank"
                 rel="noreferrer"
                 className="bg-red-700 hover:bg-red-800 text-white text-[9px] font-bold font-mono py-2 rounded-lg text-center block transition-colors shadow-2xs"
