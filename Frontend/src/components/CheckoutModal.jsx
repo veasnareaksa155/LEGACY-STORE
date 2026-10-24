@@ -268,8 +268,11 @@ const generateClientKhqr = (orderId, amount, currency = "USD") => {
   const tag62 =
     "62" + String(subtag62_01.length).padStart(2, "0") + subtag62_01;
 
+  const expireMs = (now + 30 * 60 * 1000).toString();
   const subtag99_00 = "00" + String(nowMs.length).padStart(2, "0") + nowMs;
-  const tag99 = "99" + String(subtag99_00.length).padStart(2, "0") + subtag99_00;
+  const subtag99_01 = "01" + String(expireMs.length).padStart(2, "0") + expireMs;
+  const tag99Val = subtag99_00 + subtag99_01;
+  const tag99 = "99" + String(tag99Val.length).padStart(2, "0") + tag99Val;
 
   const baseStr =
     "000201010212" +

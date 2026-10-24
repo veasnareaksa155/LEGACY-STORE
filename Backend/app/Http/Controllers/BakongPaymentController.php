@@ -39,21 +39,10 @@ class BakongPaymentController extends Controller
         $amountVal = ($currency === 'KHR') ? (float) round($amount) : (float) number_format((float) $amount, 2, '.', '');
 
         try {
-            $info = new IndividualInfo(
-                $merchantId,
-                $merchantName,
-                'Phnom Penh',
-                null,
-                null,
-                $currencyCode,
-                $amountVal,
-                $billNumber
-            );
-            $khqrRes = BakongKHQR::generateIndividual($info);
-            $qrData = $khqrRes->data['qr'];
-            $md5Hash = strtolower($khqrRes->data['md5']);
+            $qrData = $this->buildEMVCoKHQR($merchantId, $merchantName, $amount, $billNumber, $currency);
+            $md5Hash = strtolower(md5($qrData));
         } catch (\Throwable $e) {
-            Log::warning('BakongKHQR vendor generator error: ' . $e->getMessage() . ', using compliant EMVCo generator');
+            Log::error('Bakong KHQR generation error: ' . $e->getMessage());
             $qrData = $this->buildEMVCoKHQR($merchantId, $merchantName, $amount, $billNumber, $currency);
             $md5Hash = strtolower(md5($qrData));
         }
@@ -166,10 +155,13 @@ class BakongPaymentController extends Controller
         $subtag62_01 = "01" . str_pad(strlen($billNumber), 2, '0', STR_PAD_LEFT) . $billNumber;
         $tag62 = "62" . str_pad(strlen($subtag62_01), 2, '0', STR_PAD_LEFT) . $subtag62_01;
 
-        // Tag 99: Timestamp (Creation timestamp compliant with NBC standard)
+        // Tag 99: Timestamp (Creation timestamp + Mandatory Expiration timestamp for Dynamic KHQR)
         $nowMs = (string) round(microtime(true) * 1000);
+        $expireMs = (string) (round(microtime(true) * 1000) + (30 * 60 * 1000));
         $subtag99_00 = "00" . str_pad(strlen($nowMs), 2, '0', STR_PAD_LEFT) . $nowMs;
-        $tag99 = "99" . str_pad(strlen($subtag99_00), 2, '0', STR_PAD_LEFT) . $subtag99_00;
+        $subtag99_01 = "01" . str_pad(strlen($expireMs), 2, '0', STR_PAD_LEFT) . $expireMs;
+        $tag99Val = $subtag99_00 . $subtag99_01;
+        $tag99 = "99" . str_pad(strlen($tag99Val), 2, '0', STR_PAD_LEFT) . $tag99Val;
 
         $basePayload = "000201010212" . $accountTag . $tag52 . $tag53 . $tag54 . $tag58 . $tag59 . $tag60 . $tag62 . $tag99 . "6304";
 
