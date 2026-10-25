@@ -513,6 +513,22 @@ html body .ant-modal-close:hover .anticon {
   }
 }
 
+/* Luxury Order Success Modal custom refinements */
+.luxury-success-modal .ant-modal-content {
+  border-radius: 24px !important;
+  padding: 24px 28px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  overflow: hidden;
+}
+
+@media (max-width: 639px) {
+  .luxury-success-modal .ant-modal-content {
+    padding: 20px 16px !important;
+    border-radius: 20px !important;
+  }
+}
+
 /* Ant Design Select & Dropdown Contrast & Background Styling Fixes */
 .ant-select-selector {
   background-color: #ffffff !important;
