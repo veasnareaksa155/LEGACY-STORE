@@ -640,6 +640,11 @@ const CheckoutModal = ({
     if (polling && khqrData?.md5) {
       intervalId = setInterval(async () => {
         pollCount++;
+        if (pollCount > 30) {
+          clearInterval(intervalId);
+          setPolling(false);
+          return;
+        }
         try {
           const res = await checkBakongPaymentStatus(
             khqrData.md5,
@@ -662,7 +667,7 @@ const CheckoutModal = ({
         } catch (e) {
           // Keep polling silently
         }
-      }, 3000);
+      }, 4000);
 
       // Trigger Bakong status check when user returns to browser tab from bank app
       const handleTabReturn = async () => {

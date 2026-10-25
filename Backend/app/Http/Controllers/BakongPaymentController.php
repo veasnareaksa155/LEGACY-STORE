@@ -261,29 +261,10 @@ class BakongPaymentController extends Controller
                             ]);
                         }
 
-                        // If NBC Developer Quota is reached (100 req/day limit), gracefully confirm payment
+                        // If NBC Developer Quota is reached (100 req/day limit), do NOT falsely auto-confirm during polling
                         if ($errorCode === 17 || str_contains($resData['responseMessage'] ?? '', 'Daily request limit')) {
-                            Log::warning("Bakong daily quota reached (100 req limit). Gracefully confirming Order ID: {$orderId}");
-                            if (!empty($orderId)) {
-                                try {
-                                    $order = Order::where('id', $orderId)->orWhere('order_number', $orderId)->first();
-                                    if ($order) {
-                                        $order->status = 'processing';
-                                        $order->delivery_status = 'processing';
-                                        $order->payment_method = 'bakong';
-                                        $order->save();
-                                    }
-                                } catch (\Throwable $e) {
-                                    Log::warning('DB update order error: ' . $e->getMessage());
-                                }
-                            }
-
-                            return response()->json([
-                                'status' => 'success',
-                                'paid' => true,
-                                'message' => 'Payment verified on Bakong network!',
-                                'md5' => $checkHash
-                            ]);
+                            Log::warning("Bakong Open API daily request limit reached (100 req/day). Awaiting actual customer payout or manual confirmation.");
+                            break;
                         }
                     }
                 } catch (\Throwable $e) {
@@ -338,7 +319,9 @@ class BakongPaymentController extends Controller
         if ($orderNumber) {
             $order = Order::where('order_number', $orderNumber)->first();
             if ($order) {
-                $order->status = 'Processing';
+                $order->status = 'processing';
+                $order->delivery_status = 'processing';
+                $order->payment_method = 'bakong';
                 $order->save();
             }
         }
