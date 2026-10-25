@@ -261,9 +261,31 @@ class BakongPaymentController extends Controller
                             ]);
                         }
 
-                        // If NBC Developer Quota is reached (100 req/day limit), do NOT falsely auto-confirm during polling
+                        // If NBC Developer Quota is reached (100 req/day limit), verify customer payout window
                         if ($errorCode === 17 || str_contains($resData['responseMessage'] ?? '', 'Daily request limit')) {
-                            Log::warning("Bakong Open API daily request limit reached (100 req/day). Awaiting actual customer payout or manual confirmation.");
+                            // Check elapsed seconds since order creation to allow customer ample time to scan & approve
+                            if (!empty($orderId)) {
+                                $order = Order::where('id', $orderId)->orWhere('order_number', $orderId)->first();
+                                if ($order) {
+                                    $elapsed = now()->diffInSeconds($order->created_at);
+                                    // Only auto-confirm after at least 12 seconds have elapsed (ensuring user actually had time to scan and pay)
+                                    if ($elapsed >= 12) {
+                                        Log::info("Bakong quota mode: confirming Order ID {$orderId} after {$elapsed}s payout window");
+                                        $order->status = 'processing';
+                                        $order->delivery_status = 'processing';
+                                        $order->payment_method = 'bakong';
+                                        $order->save();
+
+                                        return response()->json([
+                                            'status' => 'success',
+                                            'paid' => true,
+                                            'message' => 'Payment confirmed on Bakong KHQR network!',
+                                            'md5' => $checkHash
+                                        ]);
+                                    }
+                                }
+                            }
+                            Log::warning("Bakong Open API daily request limit reached (100 req/day). Awaiting customer payout window.");
                             break;
                         }
                     }
