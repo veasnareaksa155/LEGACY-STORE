@@ -90,10 +90,23 @@ class OrderController extends Controller
 
         $order->update(['total_amount' => $finalTotal]);
 
+        // Generate immediate verified Bakong KHQR & Deeplink if paying with Bakong
+        $khqr = null;
+        if (str_contains(strtolower($order->payment_method ?? ''), 'bakong')) {
+            $currency = $request->input('currency', 'USD');
+            try {
+                $khqr = app(\App\Http\Controllers\BakongPaymentController::class)
+                    ->generateKhqrPayload($order->id, $finalTotal, $currency);
+            } catch (\Throwable $e) {
+                \Log::warning('Bakong KHQR generation in OrderController warning: ' . $e->getMessage());
+            }
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Order created successfully!',
-            'data' => $order->load('items')
+            'data' => $order->load('items'),
+            'khqr' => $khqr,
         ], 201);
     }
 

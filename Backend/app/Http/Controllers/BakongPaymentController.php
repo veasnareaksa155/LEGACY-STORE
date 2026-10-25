@@ -13,30 +13,17 @@ use KHQR\Helpers\KHQRData;
 class BakongPaymentController extends Controller
 {
     /**
-     * Generate Dynamic Bakong KHQR String & Payload
+     * Generate Bakong KHQR Payload array
      */
-    public function generateKhqr(Request $request)
+    public function generateKhqrPayload($orderId, $amount, $currency = 'USD')
     {
-        $validated = $request->validate([
-            'order_id' => 'required',
-            'amount' => 'required|numeric|min:0.01',
-            'currency' => 'nullable|string|in:USD,KHR',
-        ]);
-
-        $orderId = $validated['order_id'];
-        $amount = (float) $validated['amount'];
-        $currency = strtoupper($validated['currency'] ?? 'USD');
+        $amount = (float) $amount;
+        $currency = strtoupper($currency ?? 'USD');
 
         // Bakong Configuration with verified defaults
         $merchantId = env('BAKONG_MERCHANT_ID', 'veasna_reaksa@bkrt');
         $merchantName = env('BAKONG_MERCHANT_NAME', 'REAKSA VEASNA');
-        $mobileNumber = env('BAKONG_MOBILE_NUMBER', '855885232761');
-        $storeLabel = env('BAKONG_STORE_LABEL', 'Paris Atelier');
-        $terminal = env('BAKONG_TERMINAL', 'WEB-STORE');
         $billNumber = 'LX' . str_pad($orderId, 6, '0', STR_PAD_LEFT);
-
-        $currencyCode = ($currency === 'KHR') ? KHQRData::CURRENCY_KHR : KHQRData::CURRENCY_USD;
-        $amountVal = ($currency === 'KHR') ? (float) round($amount) : (float) number_format((float) $amount, 2, '.', '');
 
         try {
             $qrData = $this->buildEMVCoKHQR($merchantId, $merchantName, $amount, $billNumber, $currency);
@@ -76,20 +63,40 @@ class BakongPaymentController extends Controller
             }
         }
 
+        return [
+            'order_id' => $orderId,
+            'amount' => $amount,
+            'currency' => $currency,
+            'bill_number' => $billNumber,
+            'md5' => $md5Hash,
+            'qr_string' => $qrData,
+            'deeplink' => $deeplink,
+            'merchant_name' => $merchantName,
+            'merchant_id' => $merchantId,
+            'created_at' => now()->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Generate Dynamic Bakong KHQR String & Payload
+     */
+    public function generateKhqr(Request $request)
+    {
+        $validated = $request->validate([
+            'order_id' => 'required',
+            'amount' => 'required|numeric|min:0.01',
+            'currency' => 'nullable|string|in:USD,KHR',
+        ]);
+
+        $data = $this->generateKhqrPayload(
+            $validated['order_id'],
+            $validated['amount'],
+            $validated['currency'] ?? 'USD'
+        );
+
         return response()->json([
             'status' => 'success',
-            'data' => [
-                'order_id' => $orderId,
-                'amount' => $amount,
-                'currency' => $currency,
-                'bill_number' => $billNumber,
-                'md5' => $md5Hash,
-                'qr_string' => $qrData,
-                'deeplink' => $deeplink,
-                'merchant_name' => $merchantName,
-                'merchant_id' => $merchantId,
-                'created_at' => now()->toIso8601String(),
-            ]
+            'data' => $data
         ]);
     }
 

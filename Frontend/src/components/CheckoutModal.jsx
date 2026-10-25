@@ -231,13 +231,15 @@ const generateClientKhqr = (orderId, amount, currency = "USD") => {
     );
     const res = khqr.generateIndividual(info);
     if (res && res.data && res.data.qr) {
+      const qrStr = res.data.qr;
       return {
         order_id: orderId,
         amount: numAmount,
         currency: currency,
         bill_number: billNum,
-        md5: res.data.md5 || calculateMd5(res.data.qr),
-        qr_string: res.data.qr,
+        md5: res.data.md5 || calculateMd5(qrStr),
+        qr_string: qrStr,
+        deeplink: `https://bakong-deeplink.nbc.gov.kh/bakong/payment?qr=${encodeURIComponent(qrStr)}&appName=Alexandre+Luxe&appIconUrl=https%3A%2F%2Flegacy-store.onrender.com%2Ffavicon.svg&appDeepLinkCallback=https%3A%2F%2Flegacy-store.onrender.com`,
         merchant_name: "REAKSA VEASNA",
         merchant_id: "veasna_reaksa@bkrt",
       };
@@ -308,6 +310,7 @@ const generateClientKhqr = (orderId, amount, currency = "USD") => {
     bill_number: billNum,
     md5: calculateMd5(dynamicQrStr),
     qr_string: dynamicQrStr,
+    deeplink: `https://bakong-deeplink.nbc.gov.kh/bakong/payment?qr=${encodeURIComponent(dynamicQrStr)}&appName=Alexandre+Luxe&appIconUrl=https%3A%2F%2Flegacy-store.onrender.com%2Ffavicon.svg&appDeepLinkCallback=https%3A%2F%2Flegacy-store.onrender.com`,
     merchant_name: "REAKSA VEASNA",
     merchant_id: merchantId,
   };
@@ -482,61 +485,77 @@ const CheckoutModal = ({
       };
 
       if (paymentMethod === "bakong") {
-        const tempOrderId = Date.now();
-        // Instantly generate official dynamic KHQR in 0ms so modal opens with ZERO delay
-        const instantKhqr = generateClientKhqr(
-          tempOrderId,
-          totalAmount,
-          selectedCurrency,
-        );
-        setKhqrData(instantKhqr);
-        setBakongModalOpen(true);
-        setPolling(true);
-        setLoading(false);
+        setLoading(true);
 
-        // Submit order concurrently without blocking the modal
-        submitOrder(orderPayload)
-          .then((response) => {
-            const finalOrder = response.data?.data || response.data || response;
-            setCurrentOrder(finalOrder);
-            generateBakongKhqr(
-              finalOrder.id || tempOrderId,
+        try {
+          // 1. Submit order with selected currency to create real record in DB
+          const response = await submitOrder({
+            ...orderPayload,
+            currency: selectedCurrency,
+          });
+          const finalOrder = response.data?.data || response.data || response;
+          setCurrentOrder(finalOrder);
+
+          // 2. Obtain real verified KHQR + NBC Deeplink directly from backend response
+          let realKhqr = response.data?.khqr;
+          if (!realKhqr || !realKhqr.qr_string) {
+            // Fallback: call dedicated Bakong generation endpoint with the real order ID
+            const apiRes = await generateBakongKhqr(
+              finalOrder.id,
               totalAmount,
               selectedCurrency,
-            )
-              .then((apiRes) => {
-                if (apiRes && apiRes.data) {
-                  setKhqrData((prev) => ({
-                    ...apiRes.data,
-                    // Preserve instant client MD5 as fallback in case user already scanned
-                    client_md5: prev?.md5,
-                  }));
-                }
-              })
-              .catch(() => {});
-          })
-          .catch((submitErr) => {
-            console.warn(
-              "Background submitOrder warning, using local order:",
-              submitErr,
             );
-            const fallbackOrder = {
-              id: tempOrderId,
-              order_number:
-                "LX-" +
-                Math.random().toString(36).substring(2, 10).toUpperCase(),
-              customer_name: values.fullName,
-              customer_email: values.email,
-              phone: values.phone,
-              shipping_address: values.address,
-              payment_method: "bakong",
-              total_amount: totalAmount,
-              status: "pending",
-              delivery_status: "pending",
-              items: orderPayload.items,
-            };
-            setCurrentOrder(fallbackOrder);
-          });
+            realKhqr = apiRes?.data;
+          }
+
+          if (realKhqr && realKhqr.qr_string) {
+            setKhqrData(realKhqr);
+          } else {
+            // Fallback client generator using the real finalOrder ID
+            const clientKhqr = generateClientKhqr(
+              finalOrder.id,
+              totalAmount,
+              selectedCurrency,
+            );
+            setKhqrData(clientKhqr);
+          }
+
+          // 3. Open Bakong modal with TRUE, verified QR and Deeplink from frame 1
+          setBakongModalOpen(true);
+          setPolling(true);
+          setLoading(false);
+        } catch (submitErr) {
+          console.warn(
+            "submitOrder error, initiating resilient local session:",
+            submitErr,
+          );
+          const tempOrderId = Date.now();
+          const fallbackOrder = {
+            id: tempOrderId,
+            order_number:
+              "LX-" +
+              Math.random().toString(36).substring(2, 10).toUpperCase(),
+            customer_name: values.fullName,
+            customer_email: values.email,
+            phone: values.phone,
+            shipping_address: values.address,
+            payment_method: "bakong",
+            total_amount: totalAmount,
+            status: "pending",
+            delivery_status: "pending",
+            items: orderPayload.items,
+          };
+          setCurrentOrder(fallbackOrder);
+          const clientKhqr = generateClientKhqr(
+            tempOrderId,
+            totalAmount,
+            selectedCurrency,
+          );
+          setKhqrData(clientKhqr);
+          setBakongModalOpen(true);
+          setPolling(true);
+          setLoading(false);
+        }
         return;
       }
 
@@ -598,18 +617,19 @@ const CheckoutModal = ({
     setSelectedCurrency(curr);
     const orderId = currentOrder?.id || Date.now();
     const newAmount = curr === "KHR" ? khrAmount : totalAmount;
-    const newPayload = generateClientKhqr(orderId, newAmount, curr);
-    setKhqrData(newPayload);
 
     try {
       const apiRes = await generateBakongKhqr(orderId, newAmount, curr);
       if (apiRes && apiRes.data) {
-        setKhqrData((prev) => ({
-          ...apiRes.data,
-          client_md5: prev?.md5,
-        }));
+        setKhqrData(apiRes.data);
+        return;
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn("Currency change KHQR API warning:", e);
+    }
+
+    const fallbackPayload = generateClientKhqr(orderId, newAmount, curr);
+    setKhqrData(fallbackPayload);
   };
 
   // Real-time Bakong Payment Polling & Loading Verification Effect
@@ -738,6 +758,49 @@ const CheckoutModal = ({
           handleBakongCompleteSuccess();
         }, 1500);
       }, 1000);
+    }
+  };
+
+  const handleDownloadQrImage = () => {
+    try {
+      const svg = document.querySelector(".bakong-khqr-modal svg");
+      if (!svg) {
+        notification.info({
+          message: "QR Code Not Ready",
+          description: "Please wait for QR code to render before saving.",
+        });
+        return;
+      }
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      const img = new Image();
+      img.onload = () => {
+        canvas.width = img.width + 48;
+        canvas.height = img.height + 48;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 24, 24);
+        const pngFile = canvas.toDataURL("image/png");
+        const downloadLink = document.createElement("a");
+        const refName =
+          currentOrder?.order_number ||
+          (currentOrder?.id ? `LX${currentOrder.id}` : "LX_PAY");
+        downloadLink.download = `Bakong_KHQR_${refName}.png`;
+        downloadLink.href = pngFile;
+        downloadLink.click();
+        notification.success({
+          message: "QR Saved to Photos!",
+          description: "Open ABA or Bakong and choose this photo to pay.",
+          placement: "bottomRight",
+          duration: 3,
+        });
+      };
+      img.src =
+        "data:image/svg+xml;base64," +
+        btoa(unescape(encodeURIComponent(svgData)));
+    } catch (e) {
+      console.warn("Save QR image error:", e);
     }
   };
 
@@ -1257,27 +1320,27 @@ const CheckoutModal = ({
           setPolling(false);
         }}
         footer={null}
-        width={440}
+        width={420}
         centered
         destroyOnClose
         className="bakong-khqr-modal"
       >
-        <div className="text-center pt-2 pb-2 space-y-4">
-          {/* Official NBC Bakong Header */}
-          <div className="bg-gradient-to-r from-red-600 via-red-700 to-red-800 text-white p-3.5 -mx-6 -mt-6 rounded-t-lg shadow-sm flex items-center justify-between px-6">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-white text-red-600 flex items-center justify-center font-black text-xs font-mono">
-                KH
-              </div>
-              <span className="font-mono font-black text-sm uppercase tracking-wider text-white">
-                DYNAMIC BAKONG KHQR
-              </span>
+        {/* Official NBC Bakong Header */}
+        <div className="bg-gradient-to-r from-red-600 via-red-700 to-red-800 text-white p-4 flex items-center justify-between px-5">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-white text-red-600 flex items-center justify-center font-black text-xs font-mono shadow-xs">
+              KH
             </div>
-            <span className="text-[9px] font-mono font-bold bg-white/20 text-white px-2 py-0.5 rounded uppercase">
-              NBC OFFICIAL
+            <span className="font-mono font-black text-xs sm:text-sm uppercase tracking-wider text-white">
+              DYNAMIC BAKONG KHQR
             </span>
           </div>
+          <span className="text-[9px] font-mono font-bold bg-white/20 text-white px-2 py-0.5 rounded uppercase">
+            NBC OFFICIAL
+          </span>
+        </div>
 
+        <div className="p-4 sm:p-5 text-center space-y-3.5">
           {/* Amount Display */}
           <div className="bg-neutral-50 p-3 rounded-xl border border-neutral-200 text-center font-mono">
             <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest block">
@@ -1297,8 +1360,8 @@ const CheckoutModal = ({
               MERCHANT: {khqrData?.merchant_name || "REAKSA VEASNA"}
             </span>
             <div className="flex items-center justify-center gap-2 mt-1">
-              <span className="text-[10px] text-amber-700 font-bold uppercase tracking-wider">
-                ACCOUNT: veasna_reaksa@bkrt (REAKSA VEASNA)
+              <span className="text-[10px] text-amber-700 font-bold uppercase tracking-wider truncate max-w-[240px]">
+                ACCOUNT: veasna_reaksa@bkrt
               </span>
               <button
                 type="button"
@@ -1311,7 +1374,7 @@ const CheckoutModal = ({
                     duration: 2,
                   });
                 }}
-                className="text-[9px] font-mono bg-neutral-200 hover:bg-black hover:text-white px-1.5 py-0.5 rounded font-bold transition-colors cursor-pointer"
+                className="text-[9px] font-mono bg-neutral-200 hover:bg-black hover:text-white px-1.5 py-0.5 rounded font-bold transition-colors cursor-pointer shrink-0"
               >
                 COPY ID
               </button>
@@ -1326,7 +1389,7 @@ const CheckoutModal = ({
             <button
               type="button"
               onClick={() => handleCurrencyChange("USD")}
-              className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-all ${
+              className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-all cursor-pointer ${
                 selectedCurrency === "USD"
                   ? "bg-red-600 text-white shadow-xs"
                   : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
@@ -1337,7 +1400,7 @@ const CheckoutModal = ({
             <button
               type="button"
               onClick={() => handleCurrencyChange("KHR")}
-              className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-all ${
+              className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-all cursor-pointer ${
                 selectedCurrency === "KHR"
                   ? "bg-red-600 text-white shadow-xs"
                   : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
@@ -1348,9 +1411,9 @@ const CheckoutModal = ({
           </div>
 
           {/* Pure Dynamic KHQR Box */}
-          <div className="relative bg-white p-4 rounded-2xl border-2 border-red-500/40 inline-block shadow-md min-w-[260px]">
+          <div className="relative bg-white p-3.5 rounded-2xl border-2 border-red-500/40 inline-block shadow-md">
             {paymentSuccess ? (
-              <div className="w-[230px] h-[230px] flex flex-col items-center justify-center bg-emerald-50 rounded-xl space-y-2 text-emerald-600">
+              <div className="w-[210px] h-[210px] sm:w-[230px] sm:h-[230px] flex flex-col items-center justify-center bg-emerald-50 rounded-xl space-y-2 text-emerald-600">
                 <CheckCircleOutlined className="text-5xl animate-bounce" />
                 <span className="font-mono font-black text-xs uppercase tracking-wider text-emerald-800">
                   PAYMENT VERIFIED!
@@ -1360,7 +1423,7 @@ const CheckoutModal = ({
                 </span>
               </div>
             ) : verifying ? (
-              <div className="w-[230px] h-[230px] flex flex-col items-center justify-center bg-amber-50 rounded-xl space-y-3 text-amber-600">
+              <div className="w-[210px] h-[210px] sm:w-[230px] sm:h-[230px] flex flex-col items-center justify-center bg-amber-50 rounded-xl space-y-3 text-amber-600">
                 <SyncOutlined spin className="text-5xl text-amber-600" />
                 <span className="font-mono font-black text-xs uppercase tracking-wider text-amber-900 text-center px-2">
                   VERIFYING PAYMENT ON BAKONG NETWORK...
@@ -1370,16 +1433,18 @@ const CheckoutModal = ({
                 </span>
               </div>
             ) : !khqrData?.qr_string ? (
-              <div className="w-[230px] h-[230px] flex flex-col items-center justify-center bg-neutral-50 rounded-xl space-y-3 text-neutral-400">
+              <div className="w-[210px] h-[210px] sm:w-[230px] sm:h-[230px] flex flex-col items-center justify-center bg-neutral-50 rounded-xl space-y-3 text-neutral-400">
                 <SyncOutlined spin className="text-3xl text-red-500" />
-                <span className="font-mono text-xs font-bold text-neutral-600">Generating Dynamic KHQR...</span>
+                <span className="font-mono text-xs font-bold text-neutral-600">
+                  Generating Dynamic KHQR...
+                </span>
               </div>
             ) : (
-              <div className="bg-white p-3 rounded-xl border border-neutral-200 inline-block shadow-xs">
+              <div className="bg-white p-2.5 rounded-xl border border-neutral-200 inline-block shadow-2xs">
                 <QRCode
                   type="svg"
                   value={khqrData.qr_string}
-                  size={250}
+                  size={typeof window !== "undefined" && window.innerWidth < 400 ? 210 : 230}
                   color="#000000"
                   bgColor="#ffffff"
                   errorLevel="M"
@@ -1411,70 +1476,68 @@ const CheckoutModal = ({
           {khqrData?.deeplink && (
             <a
               href={khqrData.deeplink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-mono font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition-transform active:scale-98"
+              className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-mono font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition-transform active:scale-98 cursor-pointer"
             >
               <span className="text-base">📱</span>
               <span>TAP TO PAY IN ABA / BAKONG APP</span>
             </a>
           )}
 
-          {/* Copy Raw Dynamic Payload Link */}
-          <div>
+          {/* Mobile Utilities: Save QR to Photo Gallery & Copy Raw Payload */}
+          <div className="flex items-center justify-center gap-2.5 pt-1">
+            <button
+              type="button"
+              onClick={handleDownloadQrImage}
+              className="flex items-center gap-1.5 text-[10px] font-mono font-bold bg-neutral-100 hover:bg-neutral-200 text-neutral-800 px-3 py-1.5 rounded-lg border border-neutral-300 transition-colors cursor-pointer"
+            >
+              <span>💾</span>
+              <span>SAVE QR TO GALLERY</span>
+            </button>
             <button
               type="button"
               onClick={() => {
                 const currentStr = khqrData?.qr_string || "";
                 navigator.clipboard.writeText(currentStr);
                 notification.success({
-                  message: "Dynamic KHQR String Copied!",
+                  message: "Dynamic KHQR Copied!",
                   description:
-                    "You can paste this dynamic payload directly into your bank app",
+                    "Payload copied to clipboard for banking app paste",
                   placement: "bottomRight",
                   duration: 2,
                 });
               }}
               className="text-[10px] font-mono text-neutral-500 hover:text-black underline font-bold uppercase tracking-wider cursor-pointer"
             >
-              📋 COPY RAW DYNAMIC KHQR PAYLOAD
+              📋 COPY RAW KHQR
             </button>
           </div>
 
           {/* Mobile Bank Apps Deep Launchers */}
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 pt-1">
             <span className="text-[9px] font-mono font-bold text-neutral-400 uppercase tracking-widest block">
-              SCAN WITH ANY CAMBODIAN BANKING APP
+              SCAN OR TAP WITH ANY CAMBODIAN BANKING APP
             </span>
             <div className="grid grid-cols-4 gap-1.5">
               <a
                 href={khqrData?.deeplink || "abamobile://"}
-                target="_blank"
-                rel="noreferrer"
                 className="bg-sky-900 hover:bg-sky-950 text-white text-[9px] font-bold font-mono py-2 rounded-lg text-center block transition-colors shadow-2xs"
               >
                 ABA Bank
               </a>
               <a
                 href={khqrData?.deeplink || "acledamobile://"}
-                target="_blank"
-                rel="noreferrer"
                 className="bg-blue-900 hover:bg-blue-950 text-white text-[9px] font-bold font-mono py-2 rounded-lg text-center block transition-colors shadow-2xs"
               >
                 ACLEDA
               </a>
               <a
                 href={khqrData?.deeplink || "wingbank://"}
-                target="_blank"
-                rel="noreferrer"
                 className="bg-lime-600 hover:bg-lime-700 text-white text-[9px] font-bold font-mono py-2 rounded-lg text-center block transition-colors shadow-2xs"
               >
                 Wing
               </a>
               <a
                 href={khqrData?.deeplink || "bakong://"}
-                target="_blank"
-                rel="noreferrer"
                 className="bg-red-700 hover:bg-red-800 text-white text-[9px] font-bold font-mono py-2 rounded-lg text-center block transition-colors shadow-2xs"
               >
                 Bakong
@@ -1483,13 +1546,13 @@ const CheckoutModal = ({
           </div>
 
           {/* Verification & Action Buttons */}
-          <div className="space-y-2 pt-1 border-t border-neutral-200">
+          <div className="space-y-2 pt-2 border-t border-neutral-200">
             <Button
               type="primary"
               onClick={handleManualVerify}
               loading={verifying}
               icon={<ThunderboltOutlined />}
-              className="w-full bg-red-600 hover:!bg-red-700 text-white font-extrabold text-xs uppercase tracking-wider h-10 rounded-xl shadow-md border-none"
+              className="w-full !bg-red-600 hover:!bg-red-700 text-white font-extrabold text-xs uppercase tracking-wider h-11 rounded-xl shadow-md border-none cursor-pointer"
             >
               CONFIRM & VERIFY KHQR PAYMENT
             </Button>
@@ -1499,7 +1562,7 @@ const CheckoutModal = ({
                 setBakongModalOpen(false);
                 setPolling(false);
               }}
-              className="text-[10px] font-mono text-neutral-400 hover:text-black uppercase tracking-wider cursor-pointer"
+              className="text-[10px] font-mono text-neutral-400 hover:text-black uppercase tracking-wider cursor-pointer block mx-auto py-1"
             >
               Cancel Payment & Return to Cart
             </button>

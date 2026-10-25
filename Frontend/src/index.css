@@ -529,6 +529,41 @@ html body .ant-modal-close:hover .anticon {
   }
 }
 
+/* Bakong KHQR Modal Luxury Mobile & Desktop Styling */
+.bakong-khqr-modal .ant-modal-content {
+  border-radius: 24px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35) !important;
+  border: 1px solid rgba(220, 38, 38, 0.25) !important;
+}
+
+.bakong-khqr-modal .ant-modal-close {
+  top: 12px !important;
+  right: 14px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: #991b1b !important;
+  border-radius: 9999px !important;
+  width: 28px !important;
+  height: 28px !important;
+  z-index: 50 !important;
+}
+
+.bakong-khqr-modal .ant-modal-close:hover {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+@media (max-width: 639px) {
+  .bakong-khqr-modal {
+    max-width: calc(100vw - 20px) !important;
+    margin: 10px auto !important;
+  }
+  .bakong-khqr-modal .ant-modal-content {
+    border-radius: 20px !important;
+  }
+}
+
 /* Ant Design Select & Dropdown Contrast & Background Styling Fixes */
 .ant-select-selector {
   background-color: #ffffff !important;
