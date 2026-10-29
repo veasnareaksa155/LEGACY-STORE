@@ -135,7 +135,7 @@ class OrderController extends Controller
         }
 
         $validated = $request->validate([
-            'status' => 'required|string|in:pending,processing,shipped,delivering,delivered,completed,cancelled',
+            'status' => 'required|string|in:pending,processing,shipped,delivering,out_for_delivery,delivered,completed,cancelled',
             'courier_name' => 'nullable|string|max:100',
             'courier_phone' => 'nullable|string|max:50',
             'estimated_minutes' => 'nullable|integer',
@@ -194,7 +194,7 @@ class OrderController extends Controller
             'driver_lat' => 'required|numeric',
             'driver_lng' => 'required|numeric',
             'estimated_minutes' => 'nullable|integer',
-            'delivery_status' => 'nullable|string|in:pending,processing,shipped,delivering,delivered,completed',
+            'delivery_status' => 'nullable|string|in:pending,processing,shipped,delivering,out_for_delivery,delivered,completed',
         ]);
 
         $updateData = [

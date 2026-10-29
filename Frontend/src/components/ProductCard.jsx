@@ -43,6 +43,11 @@ const ProductCard = ({
           alt={product.name}
           className="w-full h-full object-cover object-center group-hover:scale-108 transition-transform duration-700 ease-out"
           loading="lazy"
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src =
+              "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=800&q=80";
+          }}
         />
 
         {/* Subtle Backdrop Blur & Soft Dark Tint Overlay on Hover */}
@@ -174,4 +179,4 @@ const ProductCard = ({
   );
 };
 
-export default ProductCard;
+export default React.memo(ProductCard);

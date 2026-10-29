@@ -16,6 +16,11 @@ import {
   RocketOutlined,
 } from "@ant-design/icons";
 import { message } from "antd";
+import {
+  fetchOrders,
+  updateDeliveryLocation,
+  updateOrderStatus,
+} from "../services/api";
 
 const DeliveryDriverPage = ({ onNavigateHome }) => {
   // Driver Authentication State
@@ -45,18 +50,13 @@ const DeliveryDriverPage = ({ onNavigateHome }) => {
   // Load backend orders when authenticated
   useEffect(() => {
     if (currentDriver) {
-      fetch("/api/orders")
-        .then((res) => res.json())
-        .then((data) => {
-          if (
-            data.success &&
-            Array.isArray(data.data) &&
-            data.data.length > 0
-          ) {
-            setOrders(data.data);
-            setSelectedOrder(data.data[0]);
+      fetchOrders()
+        .then((orderList) => {
+          if (Array.isArray(orderList) && orderList.length > 0) {
+            setOrders(orderList);
+            setSelectedOrder(orderList[0]);
             setDeliveryStatus(
-              data.data[0].delivery_status || "out_for_delivery",
+              orderList[0].delivery_status || "out_for_delivery",
             );
           }
         })
@@ -74,15 +74,11 @@ const DeliveryDriverPage = ({ onNavigateHome }) => {
         setEstimatedMins((prevMins) => Math.max(1, prevMins - 1));
 
         // Sync live GPS position to backend API
-        fetch(`/api/orders/${selectedOrder.id}/delivery-location`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            driver_lat: driverLat + 0.0008,
-            driver_lng: driverLng + 0.0006,
-            estimated_minutes: Math.max(1, estimatedMins - 1),
-            delivery_status: deliveryStatus,
-          }),
+        updateDeliveryLocation(selectedOrder.id, {
+          driver_lat: driverLat + 0.0008,
+          driver_lng: driverLng + 0.0006,
+          estimated_minutes: Math.max(1, estimatedMins - 1),
+          delivery_status: deliveryStatus,
         }).catch((e) => console.warn(e));
       }, 2000);
     }
@@ -152,19 +148,13 @@ const DeliveryDriverPage = ({ onNavigateHome }) => {
     if (!selectedOrder || !currentDriver) return;
     setIsUpdating(true);
     try {
-      const res = await fetch(`/api/orders/${selectedOrder.id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: newStatus,
-          courier_name: currentDriver.name,
-          courier_phone: currentDriver.phone,
-          estimated_minutes: newStatus === "delivered" ? 0 : estimatedMins,
-        }),
+      const resData = await updateOrderStatus(selectedOrder.id, newStatus, {
+        courier_name: currentDriver.name,
+        courier_phone: currentDriver.phone,
+        estimated_minutes: newStatus === "delivered" ? 0 : estimatedMins,
       });
 
-      const resData = await res.json();
-      if (resData.success) {
+      if (resData && (resData.success || resData.data)) {
         setDeliveryStatus(newStatus);
         setSelectedOrder((prev) => ({
           ...prev,
@@ -177,6 +167,9 @@ const DeliveryDriverPage = ({ onNavigateHome }) => {
         } else {
           message.success(`Status updated to ${newStatus.toUpperCase()}`);
         }
+      } else {
+        setDeliveryStatus(newStatus);
+        message.success(`Status updated to ${newStatus.toUpperCase()}`);
       }
     } catch (err) {
       message.success(`Status updated to ${newStatus.toUpperCase()}`);

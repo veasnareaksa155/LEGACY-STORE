@@ -168,19 +168,28 @@ function App() {
     }
   }, [wishlistItems, userWishlistKey]);
 
-  // IntersectionObserver for Smooth Scroll Animations (Bidirectional: Scroll Down & Scroll Up)
+  // Smooth scroll to top on view / page navigation
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [activePage]);
+
+  // IntersectionObserver for Silky Smooth Scroll Animations
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             entry.target.classList.add("is-visible");
-          } else {
+          } else if (
+            entry.boundingClientRect.top >
+            (window.innerHeight || document.documentElement.clientHeight)
+          ) {
+            // Only un-reveal if scrolled completely below the viewport
             entry.target.classList.remove("is-visible");
           }
         });
       },
-      { threshold: 0.1, rootMargin: "0px 0px -20px 0px" },
+      { threshold: 0.08, rootMargin: "0px 0px -15px 0px" },
     );
 
     const selector =

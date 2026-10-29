@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Modal, Rate, message } from "antd";
 import { parseGalleryUrls } from "../services/cloudinary";
+import { fetchProductReviews, submitProductReview } from "../services/api";
 import {
   ShoppingOutlined,
   CloseOutlined,
@@ -167,10 +168,9 @@ const ProductDetailModal = ({
       }
 
       // Fetch actual backend reviews
-      fetch(`/api/products/${product.id}/reviews`)
-        .then((res) => res.json())
+      fetchProductReviews(product.id)
         .then((resData) => {
-          if (resData.success && Array.isArray(resData.data)) {
+          if (resData && resData.success && Array.isArray(resData.data)) {
             setReviews(resData.data);
             if (resData.rating) setLiveRating(resData.rating);
             if (resData.reviews_count)
@@ -278,18 +278,13 @@ const ProductDetailModal = ({
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`/api/products/${product.id}/reviews`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_name: userName.trim(),
-          rating: userRating,
-          comment: userComment.trim(),
-        }),
+      const resData = await submitProductReview(product.id, {
+        user_name: userName.trim(),
+        rating: userRating,
+        comment: userComment.trim(),
       });
 
-      const resData = await response.json();
-      if (resData.success) {
+      if (resData && resData.success) {
         message.success("Thank you! Your rating & review has been posted.");
         const newReview = resData.data || {
           id: Date.now(),

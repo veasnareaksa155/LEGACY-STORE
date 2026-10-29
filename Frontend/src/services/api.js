@@ -247,13 +247,59 @@ export const fetchOrders = async (userEmail = null) => {
   return [];
 };
 
-export const updateOrderStatus = async (id, status) => {
+export const updateOrderStatus = async (id, status, extraData = {}) => {
   try {
-    const response = await api.patch(`/orders/${id}/status`, { status });
+    const payload =
+      typeof status === "object" ? status : { status, ...extraData };
+    const response = await api.patch(`/orders/${id}/status`, payload);
     return response.data;
   } catch (error) {
     console.error(`Error updating order #${id} status:`, error);
     throw error;
+  }
+};
+
+export const updateDeliveryLocation = async (orderId, locationData) => {
+  try {
+    return await requestFetch(`/orders/${orderId}/delivery-location`, {
+      method: "POST",
+      body: JSON.stringify(locationData),
+    });
+  } catch (error) {
+    const response = await api.post(
+      `/orders/${orderId}/delivery-location`,
+      locationData,
+    );
+    return response.data;
+  }
+};
+
+export const fetchProductReviews = async (productId) => {
+  try {
+    return await requestFetch(`/products/${productId}/reviews`);
+  } catch (error) {
+    try {
+      const response = await api.get(`/products/${productId}/reviews`);
+      return response.data;
+    } catch (e) {
+      console.warn("fetchProductReviews failed:", e);
+      return { success: false, data: [] };
+    }
+  }
+};
+
+export const submitProductReview = async (productId, reviewData) => {
+  try {
+    return await requestFetch(`/products/${productId}/reviews`, {
+      method: "POST",
+      body: JSON.stringify(reviewData),
+    });
+  } catch (error) {
+    const response = await api.post(
+      `/products/${productId}/reviews`,
+      reviewData,
+    );
+    return response.data;
   }
 };
 

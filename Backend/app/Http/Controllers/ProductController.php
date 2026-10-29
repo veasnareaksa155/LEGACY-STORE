@@ -164,7 +164,7 @@ class ProductController extends Controller
         ]);
 
         if (isset($validated['name'])) {
-            $validated['slug'] = \Illuminate\Support\Str::slug($validated['name']);
+            $validated['slug'] = \Illuminate\Support\Str::slug($validated['name']) . '-' . $id;
         }
 
         $product->update($validated);
