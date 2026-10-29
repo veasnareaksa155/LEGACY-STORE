@@ -34,6 +34,10 @@ const GoogleIcon = ({ className = "w-4 h-4" }) => (
   </svg>
 );
 
+// Official Google OAuth 2.0 Web Client ID
+const DEFAULT_GOOGLE_CLIENT_ID =
+  "467071922758-nnuii5qlkbatresoeee4g0o9524h9s3s.apps.googleusercontent.com";
+
 const AuthModal = ({ open, onClose, onLoginSuccess }) => {
   // Mode State: 'login' | 'register'
   const [mode, setMode] = useState("login");
@@ -47,7 +51,7 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
     return (
       import.meta.env.VITE_GOOGLE_CLIENT_ID ||
       localStorage.getItem("legacy_google_client_id") ||
-      ""
+      DEFAULT_GOOGLE_CLIENT_ID
     );
   });
 
@@ -347,7 +351,8 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
     const activeClientId =
       clientIdInput ||
       import.meta.env.VITE_GOOGLE_CLIENT_ID ||
-      localStorage.getItem("legacy_google_client_id");
+      localStorage.getItem("legacy_google_client_id") ||
+      DEFAULT_GOOGLE_CLIENT_ID;
 
     if (!activeClientId) {
       // Prompt user once for their Google OAuth Client ID if not yet defined in .env
