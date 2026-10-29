@@ -66,6 +66,18 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
     }
   }, []);
 
+  // Auto-reset loading states when modal is closed or switched between login/register
+  useEffect(() => {
+    if (!open) {
+      setGoogleLoading(false);
+      setLoading(false);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    setGoogleLoading(false);
+  }, [mode]);
+
   // Form submit handler for standard Email/Password Login
   const handleLogin = async (values) => {
     setLoading(true);
@@ -267,20 +279,68 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
 
     if (!window.google?.accounts?.oauth2) {
       notification.warning({
-        message: "GOOGLE SCRIPT LOADING",
+        message: "GOOGLE SCRIPT INITIALIZING",
         description:
-          "Google verification script is loading in your browser. Please click again in 2 seconds.",
+          "Google verification script is loading in your browser. Please click again in a moment.",
         placement: "bottomRight",
       });
       return;
     }
 
     setGoogleLoading(true);
+
+    const popupLaunchTime = Date.now();
+    let authCompleted = false;
+
+    // Auto-reset watchdog: when user returns to window/tab after closing or canceling the Google popup
+    const handleReturnToWindow = () => {
+      // Don't cancel immediately if user just clicked less than 1.5s ago
+      if (Date.now() - popupLaunchTime < 1500) {
+        return;
+      }
+      setTimeout(() => {
+        if (!authCompleted) {
+          setGoogleLoading(false);
+        }
+      }, 500);
+    };
+
+    window.addEventListener("focus", handleReturnToWindow);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        handleReturnToWindow();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    const cleanupWatchdogs = () => {
+      window.removeEventListener("focus", handleReturnToWindow);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      clearTimeout(safetyTimer);
+    };
+
+    // Fallback safety timer (15 seconds)
+    const safetyTimer = setTimeout(() => {
+      if (!authCompleted) {
+        setGoogleLoading(false);
+      }
+      cleanupWatchdogs();
+    }, 15000);
+
     try {
       const tokenClient = window.google.accounts.oauth2.initTokenClient({
         client_id: activeClientId,
         scope: "email profile openid",
+        error_callback: (err) => {
+          authCompleted = true;
+          cleanupWatchdogs();
+          setGoogleLoading(false);
+          console.warn("Google OAuth error_callback:", err);
+        },
         callback: async (tokenResponse) => {
+          authCompleted = true;
+          cleanupWatchdogs();
+
           if (tokenResponse?.error) {
             console.warn("Google OAuth popup closed or error:", tokenResponse.error);
             setGoogleLoading(false);
@@ -328,6 +388,8 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
             } finally {
               setGoogleLoading(false);
             }
+          } else {
+            setGoogleLoading(false);
           }
         },
       });
@@ -335,6 +397,8 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
       // Directly opens Google's OFFICIAL OAuth verification popup window
       tokenClient.requestAccessToken({ prompt: "select_account" });
     } catch (err) {
+      authCompleted = true;
+      cleanupWatchdogs();
       console.error("Failed to launch Google OAuth popup:", err);
       setGoogleLoading(false);
       notification.error({
@@ -418,21 +482,57 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
                 Access your personal purchases, order tracking, and wishlist.
               </p>
 
-              {/* 🌟 REAL GOOGLE VERIFY BUTTON (Opens accounts.google.com) */}
+              {/* 🌟 LUXURY GOOGLE VERIFY BUTTON (Sign In) */}
               <button
                 type="button"
-                onClick={() => handleGoogleAuthClick("login")}
-                disabled={loading || googleLoading}
-                className="w-full h-10.5 flex items-center justify-center gap-2.5 bg-white hover:bg-neutral-50 active:bg-neutral-100 text-neutral-800 font-bold text-xs uppercase tracking-wider border border-neutral-300 hover:border-black rounded-lg shadow-2xs transition-all duration-200 cursor-pointer mb-3 group"
+                onClick={() => {
+                  if (googleLoading) {
+                    setGoogleLoading(false);
+                    return;
+                  }
+                  handleGoogleAuthClick("login");
+                }}
+                disabled={loading}
+                className={`w-full h-11.5 flex items-center justify-between px-3.5 bg-white hover:bg-neutral-50 active:bg-neutral-100 text-neutral-800 font-bold text-xs uppercase tracking-wider border rounded-xl shadow-2xs transition-all duration-200 cursor-pointer mb-3 group ${
+                  googleLoading
+                    ? "border-amber-500/70 ring-2 ring-amber-500/10"
+                    : "border-neutral-300 hover:border-black"
+                }`}
               >
-                {googleLoading ? (
-                  <Spin size="small" />
-                ) : (
-                  <GoogleIcon className="w-4 h-4 shrink-0" />
-                )}
-                <span className="group-hover:text-black">
-                  {googleLoading ? "Verifying with Google..." : "Sign in with Google"}
-                </span>
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-neutral-50 border border-neutral-200 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    {googleLoading ? (
+                      <Spin size="small" />
+                    ) : (
+                      <GoogleIcon className="w-4 h-4 shrink-0" />
+                    )}
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span className="text-[11px] font-bold tracking-wider text-neutral-900 group-hover:text-black leading-tight">
+                      {googleLoading ? "Connecting to Google..." : "Sign in with Google"}
+                    </span>
+                    <span className="text-[9px] text-neutral-400 font-mono tracking-tight normal-case">
+                      {googleLoading ? "Click to cancel" : "1-click secure authentication"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-neutral-600 bg-neutral-100 border border-neutral-200 px-2 py-0.5 rounded-full">
+                    {googleLoading ? "Verifying" : "Fast Pass"}
+                  </span>
+                  {googleLoading && (
+                    <span
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setGoogleLoading(false);
+                      }}
+                      className="text-[10px] text-neutral-400 hover:text-black underline cursor-pointer ml-1"
+                    >
+                      Cancel
+                    </span>
+                  )}
+                </div>
               </button>
 
               {/* Divider */}
@@ -542,24 +642,58 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
                 Register for exclusive order tracking, saved wishlists, and drops.
               </p>
 
-              {/* 🌟 REAL GOOGLE VERIFY BUTTON FOR REGISTER (Opens accounts.google.com) */}
+              {/* 🌟 LUXURY GOOGLE REGISTER BUTTON (Opens accounts.google.com) */}
               <button
                 type="button"
-                onClick={() => handleGoogleAuthClick("register")}
-                disabled={loading || googleLoading}
-                className="w-full h-10.5 flex items-center justify-center gap-2 bg-neutral-950 hover:bg-black active:bg-neutral-800 text-white font-extrabold text-xs uppercase tracking-wider rounded-lg shadow-md transition-all duration-200 cursor-pointer mb-2.5 group border border-neutral-800 hover:border-amber-500/50"
+                onClick={() => {
+                  if (googleLoading) {
+                    setGoogleLoading(false);
+                    return;
+                  }
+                  handleGoogleAuthClick("register");
+                }}
+                disabled={loading}
+                className={`w-full h-11.5 flex items-center justify-between px-3.5 bg-neutral-950 hover:bg-black active:bg-neutral-900 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all duration-200 cursor-pointer mb-2.5 group border ${
+                  googleLoading
+                    ? "border-amber-400 ring-2 ring-amber-400/20"
+                    : "border-neutral-800 hover:border-amber-400/60"
+                }`}
               >
-                {googleLoading ? (
-                  <Spin size="small" />
-                ) : (
-                  <GoogleIcon className="w-4 h-4 shrink-0" />
-                )}
-                <span>
-                  {googleLoading ? "Verifying with Google..." : "Register with Google"}
-                </span>
-                <span className="text-[9px] font-mono bg-amber-400 text-black px-1.5 py-0.2 rounded-sm font-black ml-1 uppercase">
-                  Real Google Verify
-                </span>
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-neutral-900 border border-neutral-800 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    {googleLoading ? (
+                      <Spin size="small" />
+                    ) : (
+                      <GoogleIcon className="w-4 h-4 shrink-0" />
+                    )}
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span className="text-[11px] font-bold tracking-wider text-white group-hover:text-amber-200 transition-colors leading-tight">
+                      {googleLoading ? "Connecting to Google..." : "Register with Google"}
+                    </span>
+                    <span className="text-[9px] text-neutral-400 font-mono tracking-tight normal-case">
+                      {googleLoading ? "Click to cancel" : "Verified profile & instant VIP"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    Instant VIP
+                  </span>
+                  {googleLoading && (
+                    <span
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setGoogleLoading(false);
+                      }}
+                      className="text-[10px] text-neutral-400 hover:text-white underline cursor-pointer ml-1"
+                    >
+                      Cancel
+                    </span>
+                  )}
+                </div>
               </button>
 
               {/* Divider */}
