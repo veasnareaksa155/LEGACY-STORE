@@ -77,10 +77,20 @@ const UserAccountPage = ({
   );
 
   useEffect(() => {
-    if (profile.avatar || profile.avatar_url) {
-      setAvatarImage(profile.avatar || profile.avatar_url);
-    }
-  }, [profile]);
+    setAvatarImage(
+      currentUser?.avatar ||
+        currentUser?.avatar_url ||
+        profile.avatar ||
+        profile.avatar_url ||
+        null,
+    );
+  }, [
+    currentUser?.avatar,
+    currentUser?.avatar_url,
+    currentUser?.id,
+    profile.avatar,
+    profile.avatar_url,
+  ]);
 
   const handleAvatarFileChange = async (e) => {
     const file = e.target.files && e.target.files[0];
@@ -110,15 +120,36 @@ const UserAccountPage = ({
       avatar: croppedDataUrl,
       avatar_url: croppedDataUrl,
     };
-    if (profile.id) {
-      try {
-        await updateUser(profile.id, { avatar: croppedDataUrl });
-      } catch (err) {
-        console.warn("Failed to save avatar to DB:", err);
-      }
-    }
+
+    // Update local state and localStorage immediately
     if (onUpdateProfile) {
       onUpdateProfile(updated);
+    }
+
+    const userId = profile.id || currentUser?.id;
+    if (userId) {
+      try {
+        const res = await updateUser(userId, { avatar: croppedDataUrl });
+        if (res?.data) {
+          const syncedUser = {
+            ...updated,
+            ...res.data,
+            avatar: res.data.avatar || croppedDataUrl,
+            avatar_url: res.data.avatar || croppedDataUrl,
+          };
+          if (onUpdateProfile) {
+            onUpdateProfile(syncedUser);
+          }
+        }
+        notification.success({
+          message: "PROFILE PHOTO SAVED",
+          description: "Your VIP profile avatar has been securely saved to your account.",
+          placement: "bottomRight",
+          duration: 3,
+        });
+      } catch (err) {
+        console.error("Failed to save avatar to DB:", err);
+      }
     }
   };
 
@@ -199,13 +230,19 @@ const UserAccountPage = ({
       avatar_url: avatarImage,
     };
 
-    if (profile.id) {
+    const userId = profile.id || currentUser?.id;
+    if (userId) {
       try {
-        await updateUser(profile.id, {
+        const res = await updateUser(userId, {
           name: values.name,
           phone: values.phone,
           address: values.address,
+          avatar: avatarImage,
         });
+        if (res?.data) {
+          updated.avatar = res.data.avatar || avatarImage;
+          updated.avatar_url = res.data.avatar || avatarImage;
+        }
       } catch (err) {
         console.warn("Could not sync profile to DB:", err);
       }

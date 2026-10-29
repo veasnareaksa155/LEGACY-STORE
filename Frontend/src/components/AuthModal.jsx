@@ -43,7 +43,8 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
           : "2026",
         phone: apiUser.phone || "",
         address: apiUser.address || "",
-        avatar: apiUser.avatar || null,
+        avatar: apiUser.avatar || apiUser.avatar_url || null,
+        avatar_url: apiUser.avatar_url || apiUser.avatar || null,
       };
 
       notification.success({
@@ -107,7 +108,8 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
           : "2026",
         phone: apiUser?.phone || "",
         address: apiUser?.address || "",
-        avatar: apiUser?.avatar || null,
+        avatar: apiUser?.avatar || apiUser?.avatar_url || null,
+        avatar_url: apiUser?.avatar_url || apiUser?.avatar || null,
       };
 
       notification.success({

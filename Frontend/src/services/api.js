@@ -10,13 +10,13 @@ const api = axios.create({
     "Content-Type": "application/json",
     Accept: "application/json",
   },
-  timeout: 6000,
+  timeout: 15000,
 });
 
-// Resilient native fetch helper with 6-second timeout
+// Resilient native fetch helper with 15-second timeout
 const requestFetch = async (endpoint, options = {}) => {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 6000);
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
   try {
     const url = `${API_BASE_URL}${endpoint}`;
     const response = await fetch(url, {

@@ -1607,7 +1607,7 @@ const AdminDashboardPage = ({
       render: (name, record) => (
         <div className="flex items-center space-x-3">
           <div
-            className={`w-8 h-8 rounded-full border flex items-center justify-center font-bold text-xs uppercase font-serif shadow-xs ${
+            className={`w-8 h-8 rounded-full border flex items-center justify-center font-bold text-xs uppercase font-serif shadow-xs overflow-hidden shrink-0 ${
               record.role === "driver"
                 ? "bg-blue-900 text-blue-200 border-blue-700"
                 : record.role === "admin"
@@ -1615,7 +1615,19 @@ const AdminDashboardPage = ({
                   : "bg-neutral-800 text-white border-neutral-700"
             }`}
           >
-            {record.role === "driver" ? "🚚" : name ? name.charAt(0) : "U"}
+            {record.avatar || record.avatar_url ? (
+              <img
+                src={record.avatar || record.avatar_url}
+                alt={name}
+                className="w-full h-full object-cover"
+              />
+            ) : record.role === "driver" ? (
+              "🚚"
+            ) : name ? (
+              name.charAt(0)
+            ) : (
+              "U"
+            )}
           </div>
           <div>
             <span className="font-bold text-xs uppercase text-black block">

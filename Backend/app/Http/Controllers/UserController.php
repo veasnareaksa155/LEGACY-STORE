@@ -60,7 +60,14 @@ class UserController extends Controller
             'address' => 'nullable|string',
             'tier' => 'nullable|string',
             'vehicle_tag' => 'nullable|string|max:100',
+            'avatar' => 'nullable|string',
+            'avatar_url' => 'nullable|string',
         ]);
+
+        if (isset($validated['avatar_url']) && empty($validated['avatar'])) {
+            $validated['avatar'] = $validated['avatar_url'];
+        }
+        unset($validated['avatar_url']);
 
         $existing = User::where('email', $validated['email'])->first();
         if ($existing) {
@@ -98,8 +105,14 @@ class UserController extends Controller
             'tier' => 'nullable|string',
             'vehicle_tag' => 'nullable|string|max:100',
             'avatar' => 'nullable|string',
+            'avatar_url' => 'nullable|string',
             'password' => 'nullable|string|min:6',
         ]);
+
+        if (isset($validated['avatar_url']) && empty($validated['avatar'])) {
+            $validated['avatar'] = $validated['avatar_url'];
+        }
+        unset($validated['avatar_url']);
 
         if (!empty($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);

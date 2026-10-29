@@ -64,7 +64,7 @@ const ImageTrimModal = ({
 
     const img = imageRef.current;
     const canvas = document.createElement("canvas");
-    const outputSize = 500; // High resolution square canvas output
+    const outputSize = 360; // Optimal high-resolution square avatar canvas output
     canvas.width = outputSize;
     canvas.height = outputSize;
     const ctx = canvas.getContext("2d");
@@ -116,8 +116,8 @@ const ImageTrimModal = ({
 
     ctx.restore();
 
-    // Export high-quality base64 image data URL
-    const croppedDataUrl = canvas.toDataURL("image/jpeg", 0.95);
+    // Export high-quality optimized base64 image data URL (~25-35KB for fast sync & instant render)
+    const croppedDataUrl = canvas.toDataURL("image/jpeg", 0.88);
     onCropComplete(croppedDataUrl);
     onClose();
 
