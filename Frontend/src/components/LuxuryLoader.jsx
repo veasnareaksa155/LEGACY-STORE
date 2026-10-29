@@ -30,11 +30,11 @@ const LuxuryLoader = ({
           font-weight: 900;
           text-transform: uppercase;
           color: var(--text-color);
-          width: 8.5em;
+          width: 7em;
           height: 1.8em;
           filter: drop-shadow(0 0 0.1em var(--shine-color));
           font-family: 'Playfair Display', 'Cinzel', serif, sans-serif;
-          letter-spacing: 0.05em;
+          letter-spacing: 0.12em;
         }
 
         .luxe-loader-wrapper .text-layer {
@@ -261,7 +261,7 @@ const LuxuryLoader = ({
       </div>
 
       <p className="mt-4 text-xs font-mono tracking-widest text-neutral-400 uppercase">
-        PARISIAN HAUTE COUTURE
+        LEGACY STORE
       </p>
     </div>
   );
