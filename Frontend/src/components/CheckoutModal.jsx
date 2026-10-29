@@ -822,7 +822,7 @@ const CheckoutModal = ({
           <div className="flex items-center space-x-2 border-b border-neutral-200 pb-3">
             <LockOutlined style={{ fontSize: "18px" }} />
             <span className="font-serif font-bold text-base sm:text-lg uppercase tracking-wider text-black">
-              SECURE CHECKOUT • ALEXANDRE LUXE
+              SECURE CHECKOUT • LEGACY STORE
             </span>
           </div>
         }
@@ -906,7 +906,11 @@ const CheckoutModal = ({
                   { required: true, message: "Please enter your full name" },
                 ]}
               >
-                <Input placeholder="John Doe" className="text-xs py-2" />
+                <Input
+                  placeholder="Jean Dupont"
+                  autoComplete="name"
+                  className="text-sm sm:text-xs py-2 sm:py-2.5 rounded-lg h-11 sm:h-10"
+                />
               </Form.Item>
 
               <Form.Item
@@ -922,8 +926,13 @@ const CheckoutModal = ({
                 ]}
               >
                 <Input
-                  placeholder="john@example.com"
-                  className="text-xs py-2"
+                  placeholder="client@legacystore.com"
+                  type="email"
+                  inputMode="email"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  autoComplete="email"
+                  className="text-sm sm:text-xs py-2 sm:py-2.5 rounded-lg h-11 sm:h-10"
                 />
               </Form.Item>
             </div>
@@ -937,7 +946,13 @@ const CheckoutModal = ({
               name="phone"
               rules={[{ required: true, message: "Please enter phone number" }]}
             >
-              <Input placeholder="+855 12 345 678" className="text-xs py-2" />
+              <Input
+                placeholder="+855 12 345 678"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                className="text-sm sm:text-xs py-2 sm:py-2.5 rounded-lg h-11 sm:h-10"
+              />
             </Form.Item>
 
             <Form.Item
@@ -957,7 +972,7 @@ const CheckoutModal = ({
               <Input.TextArea
                 rows={2}
                 placeholder="75 Rue du Faubourg Saint-Honoré, 75008 Paris, France"
-                className="text-xs"
+                className="text-sm sm:text-xs p-2.5 rounded-lg"
               />
             </Form.Item>
 
@@ -1184,10 +1199,11 @@ const CheckoutModal = ({
                           className="mb-0"
                         >
                           <Input
-                            placeholder="ALEXANDRE REAKSA"
+                            placeholder="CARDHOLDER NAME"
                             value={cardDetails.name}
+                            autoComplete="cc-name"
                             onChange={handleCardNameChange}
-                            className="text-xs bg-neutral-900 border-neutral-800 text-white placeholder-neutral-600 focus:border-amber-500 uppercase font-mono py-1.5"
+                            className="text-sm sm:text-xs bg-neutral-900 border-neutral-800 text-white placeholder-neutral-600 focus:border-amber-500 uppercase font-mono py-2 sm:py-2 h-11 sm:h-9.5 rounded-lg"
                           />
                         </Form.Item>
 
@@ -1213,6 +1229,8 @@ const CheckoutModal = ({
                           <Input
                             placeholder="4532 1234 5678 9010"
                             maxLength={19}
+                            inputMode="numeric"
+                            autoComplete="cc-number"
                             value={cardDetails.number}
                             onChange={handleCardNumberChange}
                             suffix={
@@ -1220,7 +1238,7 @@ const CheckoutModal = ({
                                 {getCardBrandInfo(cardDetails.number).name}
                               </span>
                             }
-                            className="text-xs bg-neutral-900 border-neutral-800 text-white placeholder-neutral-600 focus:border-amber-500 font-mono py-1.5"
+                            className="text-sm sm:text-xs bg-neutral-900 border-neutral-800 text-white placeholder-neutral-600 focus:border-amber-500 font-mono py-2 sm:py-2 h-11 sm:h-9.5 rounded-lg"
                           />
                         </Form.Item>
                       </div>
@@ -1243,9 +1261,11 @@ const CheckoutModal = ({
                           <Input
                             placeholder="12/28"
                             maxLength={5}
+                            inputMode="numeric"
+                            autoComplete="cc-exp"
                             value={cardDetails.expiry}
                             onChange={handleCardExpiryChange}
-                            className="text-xs bg-neutral-900 border-neutral-800 text-white placeholder-neutral-600 focus:border-amber-500 font-mono py-1.5"
+                            className="text-sm sm:text-xs bg-neutral-900 border-neutral-800 text-white placeholder-neutral-600 focus:border-amber-500 font-mono py-2 sm:py-2 h-11 sm:h-9.5 rounded-lg"
                           />
                         </Form.Item>
 
@@ -1266,9 +1286,11 @@ const CheckoutModal = ({
                           <Input.Password
                             placeholder="123"
                             maxLength={4}
+                            inputMode="numeric"
+                            autoComplete="cc-csc"
                             value={cardDetails.cvc}
                             onChange={handleCardCvcChange}
-                            className="text-xs bg-neutral-900 border-neutral-800 text-white placeholder-neutral-600 focus:border-amber-500 font-mono py-1.5"
+                            className="text-sm sm:text-xs bg-neutral-900 border-neutral-800 text-white placeholder-neutral-600 focus:border-amber-500 font-mono py-2 sm:py-2 h-11 sm:h-9.5 rounded-lg"
                           />
                         </Form.Item>
                       </div>

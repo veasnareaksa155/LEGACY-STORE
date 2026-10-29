@@ -289,20 +289,19 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
 
     setGoogleLoading(true);
 
-    const popupLaunchTime = Date.now();
     let authCompleted = false;
+    let focusTimer = null;
 
-    // Auto-reset watchdog: when user returns to window/tab after closing or canceling the Google popup
+    // Auto-reset watchdog: when user returns to window/tab after closing, cancelling, or navigating back from Google popup
     const handleReturnToWindow = () => {
-      // Don't cancel immediately if user just clicked less than 1.5s ago
-      if (Date.now() - popupLaunchTime < 1500) {
-        return;
-      }
-      setTimeout(() => {
+      if (focusTimer) clearTimeout(focusTimer);
+      // Grace period for token callback to fire if user completed authentication
+      focusTimer = setTimeout(() => {
         if (!authCompleted) {
           setGoogleLoading(false);
+          cleanupWatchdogs();
         }
-      }, 500);
+      }, 700);
     };
 
     window.addEventListener("focus", handleReturnToWindow);
@@ -314,18 +313,19 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     const cleanupWatchdogs = () => {
+      if (focusTimer) clearTimeout(focusTimer);
       window.removeEventListener("focus", handleReturnToWindow);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       clearTimeout(safetyTimer);
     };
 
-    // Fallback safety timer (15 seconds)
+    // Auto-timeout after 9 seconds max if popup hangs or is abandoned
     const safetyTimer = setTimeout(() => {
       if (!authCompleted) {
         setGoogleLoading(false);
       }
       cleanupWatchdogs();
-    }, 15000);
+    }, 9000);
 
     try {
       const tokenClient = window.google.accounts.oauth2.initTokenClient({
@@ -336,6 +336,13 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
           cleanupWatchdogs();
           setGoogleLoading(false);
           console.warn("Google OAuth error_callback:", err);
+          if (err?.type === "popup_failed_to_open") {
+            notification.warning({
+              message: "POPUP BLOCKED",
+              description: "Please allow browser popups to sign in with Google.",
+              placement: "bottomRight",
+            });
+          }
         },
         callback: async (tokenResponse) => {
           authCompleted = true;
@@ -344,10 +351,10 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
           if (tokenResponse?.error) {
             console.warn("Google OAuth popup closed or error:", tokenResponse.error);
             setGoogleLoading(false);
-            if (tokenResponse.error !== "popup_closed_by_user") {
+            if (tokenResponse.error !== "popup_closed_by_user" && tokenResponse.error !== "access_denied") {
               notification.error({
-                message: "GOOGLE AUTH ERROR",
-                description: `Google returned an error: ${tokenResponse.error_description || tokenResponse.error}`,
+                message: "GOOGLE SIGN-IN NOTICE",
+                description: `Google error: ${tokenResponse.error_description || tokenResponse.error}`,
                 placement: "bottomRight",
               });
             }
@@ -454,7 +461,7 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
         className="luxury-auth-modal"
         bodyStyle={{ padding: 0, borderRadius: "1.25rem", overflow: "hidden" }}
       >
-        <div className="relative w-full min-h-[500px] md:h-[610px] bg-white rounded-2xl overflow-hidden shadow-2xl select-none">
+        <div className="relative w-full min-h-[500px] md:h-[610px] max-h-[88vh] md:max-h-none overflow-y-auto md:overflow-hidden bg-white rounded-2xl shadow-2xl select-none">
           {/* ================= PANEL 1: LOGIN FORM ================= */}
           <div
             className={`w-full md:w-1/2 md:absolute md:top-0 md:left-0 h-full p-6 sm:p-7 flex flex-col justify-between transition-all duration-500 ease-in-out ${
@@ -493,10 +500,10 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
                   handleGoogleAuthClick("login");
                 }}
                 disabled={loading}
-                className={`w-full h-11.5 flex items-center justify-between px-3.5 bg-white hover:bg-neutral-50 active:bg-neutral-100 text-neutral-800 font-bold text-xs uppercase tracking-wider border rounded-xl shadow-2xs transition-all duration-200 cursor-pointer mb-3 group ${
+                className={`w-full h-11.5 sm:h-11 flex items-center justify-between px-3.5 sm:px-4 bg-white hover:bg-neutral-50 active:bg-neutral-100 text-neutral-800 font-bold text-xs uppercase tracking-wider border rounded-xl shadow-xs transition-all duration-200 cursor-pointer mb-3 group ${
                   googleLoading
-                    ? "border-amber-500/70 ring-2 ring-amber-500/10"
-                    : "border-neutral-300 hover:border-black"
+                    ? "border-neutral-900 ring-2 ring-neutral-900/10"
+                    : "border-neutral-200 hover:border-black"
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -509,17 +516,17 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
                   </div>
                   <div className="flex flex-col text-left">
                     <span className="text-[11px] font-bold tracking-wider text-neutral-900 group-hover:text-black leading-tight">
-                      {googleLoading ? "Connecting to Google..." : "Sign in with Google"}
+                      {googleLoading ? "Connecting to Google..." : "Continue with Google"}
                     </span>
                     <span className="text-[9px] text-neutral-400 font-mono tracking-tight normal-case">
-                      {googleLoading ? "Click to cancel" : "1-click secure authentication"}
+                      {googleLoading ? "Tap to cancel" : "1-click secure authentication"}
                     </span>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-1.5">
                   <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-neutral-600 bg-neutral-100 border border-neutral-200 px-2 py-0.5 rounded-full">
-                    {googleLoading ? "Verifying" : "Fast Pass"}
+                    {googleLoading ? "Connecting" : "Fast Pass"}
                   </span>
                   {googleLoading && (
                     <span
@@ -527,7 +534,7 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
                         e.stopPropagation();
                         setGoogleLoading(false);
                       }}
-                      className="text-[10px] text-neutral-400 hover:text-black underline cursor-pointer ml-1"
+                      className="text-[10px] text-neutral-500 hover:text-black font-semibold underline cursor-pointer ml-1"
                     >
                       Cancel
                     </span>
@@ -566,7 +573,12 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
                   <Input
                     prefix={<MailOutlined className="text-neutral-400" />}
                     placeholder="client@legacystore.com"
-                    className="text-xs py-2 rounded-md"
+                    type="email"
+                    inputMode="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    autoComplete="email"
+                    className="text-sm sm:text-xs py-2 sm:py-2.5 rounded-xl h-11 sm:h-10"
                   />
                 </Form.Item>
 
@@ -583,7 +595,8 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
                   <Input.Password
                     prefix={<LockOutlined className="text-neutral-400" />}
                     placeholder="••••••••"
-                    className="text-xs py-2 rounded-md"
+                    autoComplete="current-password"
+                    className="text-sm sm:text-xs py-2 sm:py-2.5 rounded-xl h-11 sm:h-10"
                   />
                 </Form.Item>
 
@@ -642,7 +655,7 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
                 Register for exclusive order tracking, saved wishlists, and drops.
               </p>
 
-              {/* 🌟 LUXURY GOOGLE REGISTER BUTTON (Opens accounts.google.com) */}
+              {/* 🌟 LUXURY GOOGLE REGISTER BUTTON (VIP Sign Up) */}
               <button
                 type="button"
                 onClick={() => {
@@ -653,7 +666,7 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
                   handleGoogleAuthClick("register");
                 }}
                 disabled={loading}
-                className={`w-full h-11.5 flex items-center justify-between px-3.5 bg-neutral-950 hover:bg-black active:bg-neutral-900 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all duration-200 cursor-pointer mb-2.5 group border ${
+                className={`w-full h-11.5 sm:h-11 flex items-center justify-between px-3.5 sm:px-4 bg-neutral-950 hover:bg-black active:bg-neutral-900 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all duration-200 cursor-pointer mb-2.5 group border ${
                   googleLoading
                     ? "border-amber-400 ring-2 ring-amber-400/20"
                     : "border-neutral-800 hover:border-amber-400/60"
@@ -669,10 +682,10 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
                   </div>
                   <div className="flex flex-col text-left">
                     <span className="text-[11px] font-bold tracking-wider text-white group-hover:text-amber-200 transition-colors leading-tight">
-                      {googleLoading ? "Connecting to Google..." : "Register with Google"}
+                      {googleLoading ? "Connecting to Google..." : "Sign up with Google"}
                     </span>
                     <span className="text-[9px] text-neutral-400 font-mono tracking-tight normal-case">
-                      {googleLoading ? "Click to cancel" : "Verified profile & instant VIP"}
+                      {googleLoading ? "Tap to cancel" : "Verified profile & instant VIP"}
                     </span>
                   </div>
                 </div>
@@ -680,7 +693,7 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
                 <div className="flex items-center gap-1.5">
                   <span className="text-[9px] font-mono font-bold uppercase tracking-wider text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                    Instant VIP
+                    {googleLoading ? "Connecting" : "Instant VIP"}
                   </span>
                   {googleLoading && (
                     <span
@@ -688,7 +701,7 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
                         e.stopPropagation();
                         setGoogleLoading(false);
                       }}
-                      className="text-[10px] text-neutral-400 hover:text-white underline cursor-pointer ml-1"
+                      className="text-[10px] text-neutral-400 hover:text-white font-semibold underline cursor-pointer ml-1"
                     >
                       Cancel
                     </span>
@@ -727,7 +740,8 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
                   <Input
                     prefix={<IdcardOutlined className="text-neutral-400" />}
                     placeholder="e.g. Jean Dupont"
-                    className="text-xs py-1.5 rounded-md"
+                    autoComplete="name"
+                    className="text-sm sm:text-xs py-2 sm:py-2 rounded-xl h-11 sm:h-9.5"
                   />
                 </Form.Item>
 
@@ -744,7 +758,12 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
                   <Input
                     prefix={<MailOutlined className="text-neutral-400" />}
                     placeholder="name@domain.com"
-                    className="text-xs py-1.5 rounded-md"
+                    type="email"
+                    inputMode="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    autoComplete="email"
+                    className="text-sm sm:text-xs py-2 sm:py-2 rounded-xl h-11 sm:h-9.5"
                   />
                 </Form.Item>
 
@@ -763,7 +782,8 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
                   <Input.Password
                     prefix={<LockOutlined className="text-neutral-400" />}
                     placeholder="••••••••"
-                    className="text-xs py-1.5 rounded-md"
+                    autoComplete="new-password"
+                    className="text-sm sm:text-xs py-2 sm:py-2 rounded-xl h-11 sm:h-9.5"
                   />
                 </Form.Item>
 

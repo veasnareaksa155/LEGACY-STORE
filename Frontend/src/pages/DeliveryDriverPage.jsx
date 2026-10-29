@@ -233,11 +233,15 @@ const DeliveryDriverPage = ({ onNavigateHome }) => {
                 <UserOutlined className="absolute left-3 text-neutral-500 text-xs" />
                 <input
                   type="text"
+                  inputMode="email"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  autoComplete="username"
                   required
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
-                  placeholder="driver@alexandreluxe.com"
-                  className="w-full pl-9 pr-3 py-2.5 bg-black border border-neutral-700 rounded-xl text-xs text-white placeholder-neutral-500 focus:border-amber-400 focus:outline-none font-mono"
+                  placeholder="driver@legacystore.com"
+                  className="w-full pl-9 pr-3 py-3 bg-black border border-neutral-700 rounded-xl text-base sm:text-xs text-white placeholder-neutral-500 focus:border-amber-400 focus:outline-none font-mono h-12 sm:h-11"
                 />
               </div>
             </div>
@@ -250,11 +254,12 @@ const DeliveryDriverPage = ({ onNavigateHome }) => {
                 <LockOutlined className="absolute left-3 text-neutral-500 text-xs" />
                 <input
                   type="password"
+                  autoComplete="current-password"
                   required
                   value={passwordInput}
                   onChange={(e) => setPasswordInput(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-9 pr-3 py-2.5 bg-black border border-neutral-700 rounded-xl text-xs text-white placeholder-neutral-500 focus:border-amber-400 focus:outline-none font-mono"
+                  className="w-full pl-9 pr-3 py-3 bg-black border border-neutral-700 rounded-xl text-base sm:text-xs text-white placeholder-neutral-500 focus:border-amber-400 focus:outline-none font-mono h-12 sm:h-11"
                 />
               </div>
             </div>

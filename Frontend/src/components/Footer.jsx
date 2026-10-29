@@ -186,8 +186,12 @@ const Footer = ({ onSelectCategory, onNavigatePage }) => {
             </p>
             <div className="flex gap-2">
               <Input
+                type="email"
+                inputMode="email"
+                autoCapitalize="none"
+                autoCorrect="off"
                 placeholder="Enter your email"
-                className="footer-newsletter-input h-11"
+                className="footer-newsletter-input h-12 sm:h-11 text-base sm:text-sm"
               />
               <Button
                 type="primary"
@@ -196,7 +200,7 @@ const Footer = ({ onSelectCategory, onNavigatePage }) => {
                     style={{ color: "#000000", fontSize: "16px" }}
                   />
                 }
-                className="footer-newsletter-btn h-11 px-5"
+                className="footer-newsletter-btn h-12 sm:h-11 px-5"
               />
             </div>
           </div>

@@ -244,7 +244,7 @@ const Navbar = ({
                     }
                     value={navSearch}
                     onChange={handleSearchInputChange}
-                    className="w-full text-xs !rounded-full border-neutral-300 py-1.5 pl-3.5 pr-2.5 shadow-lg bg-white hover:border-black focus:border-black transition-all"
+                    className="w-full text-sm sm:text-xs !rounded-full border-neutral-300 py-2 sm:py-1.5 pl-3.5 pr-2.5 shadow-lg bg-white hover:border-black focus:border-black transition-all h-10"
                     autoFocus={showSearchMobile}
                   />
                 </div>
@@ -592,6 +592,22 @@ const Navbar = ({
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Mobile Drawer Dedicated Search Bar */}
+            <div className="mb-3.5">
+              <Input
+                placeholder="Search products in shop..."
+                prefix={<SearchOutlined className="text-neutral-400 mr-1.5" />}
+                value={navSearch}
+                onChange={handleSearchInputChange}
+                onPressEnter={() => {
+                  setMobileMenuOpen(false);
+                  if (activePage !== "shop") onNavigatePage("shop");
+                }}
+                allowClear
+                className="w-full text-base sm:text-xs rounded-xl border-neutral-300 py-2.5 px-3 bg-neutral-50 hover:bg-white hover:border-black focus:border-black transition-all shadow-2xs h-11"
+              />
             </div>
 
             {/* Navigation Menu List with Professional Vivid Accents */}

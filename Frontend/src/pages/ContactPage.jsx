@@ -282,8 +282,9 @@ const ContactPage = () => {
                     size="large"
                     placeholder="e.g. Alexandre Moreau"
                     value={formData.name}
+                    autoComplete="name"
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="rounded-xl text-xs sm:text-sm border-neutral-300 hover:border-black focus:border-black h-11"
+                    className="rounded-xl text-base sm:text-sm border-neutral-300 hover:border-black focus:border-black h-12 sm:h-11"
                   />
                 </div>
 
@@ -294,10 +295,13 @@ const ContactPage = () => {
                   <Input
                     size="large"
                     type="email"
+                    inputMode="email"
+                    autoCapitalize="none"
+                    autoComplete="email"
                     placeholder="e.g. alexandre@example.com"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="rounded-xl text-xs sm:text-sm border-neutral-300 hover:border-black focus:border-black h-11"
+                    className="rounded-xl text-base sm:text-sm border-neutral-300 hover:border-black focus:border-black h-12 sm:h-11"
                   />
                 </div>
               </div>
@@ -310,10 +314,13 @@ const ContactPage = () => {
                   </label>
                   <Input
                     size="large"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
                     placeholder="e.g. +33 6 12 34 56 78"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="rounded-xl text-xs sm:text-sm border-neutral-300 hover:border-black focus:border-black h-11"
+                    className="rounded-xl text-base sm:text-sm border-neutral-300 hover:border-black focus:border-black h-12 sm:h-11"
                   />
                 </div>
 
@@ -347,7 +354,7 @@ const ContactPage = () => {
                   placeholder="How may our Paris concierge advisors assist you today? Please include any preferred sizes or specific garment inquiries."
                   value={formData.message}
                   onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                  className="rounded-xl text-xs sm:text-sm border-neutral-300 hover:border-black focus:border-black p-3"
+                  className="rounded-xl text-base sm:text-sm border-neutral-300 hover:border-black focus:border-black p-3.5"
                 />
               </div>
 

@@ -113,12 +113,12 @@ const CategoryBar = ({
                 onFocus={() => setIsFocused(true)}
                 onChange={handleCategorySearchChange}
                 allowClear
-                className="rounded-full border-neutral-300 hover:border-black focus:border-black text-xs py-1.5 shadow-xs"
+                className="rounded-full border-neutral-300 hover:border-black focus:border-black text-sm sm:text-xs py-2 sm:py-1.5 px-4 h-11 sm:h-9 shadow-xs"
               />
 
               {/* SEARCH AUTOCOMPLETE & PRODUCT DISCOVER DROPDOWN PANEL */}
               {isFocused && (
-                <div className="absolute top-full right-0 mt-2 w-full sm:w-96 bg-white/98 backdrop-blur-md rounded-2xl border border-neutral-200 shadow-2xl z-[9999] overflow-hidden text-neutral-900 transition-all duration-300 animate-in fade-in slide-in-from-top-2">
+                <div className="absolute top-full right-0 mt-2 w-full sm:w-96 max-w-[calc(100vw-32px)] bg-white/98 backdrop-blur-md rounded-2xl border border-neutral-200 shadow-2xl z-[9999] overflow-hidden text-neutral-900 transition-all duration-300 animate-in fade-in slide-in-from-top-2">
                   {/* Category Type Quick Filters Header */}
                   <div className="bg-neutral-100/90 p-3 border-b border-neutral-200 flex items-center justify-between">
                     <span className="text-[10px] font-mono font-extrabold uppercase tracking-widest text-neutral-500 flex items-center gap-1.5">

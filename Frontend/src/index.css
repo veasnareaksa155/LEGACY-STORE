@@ -205,6 +205,79 @@ html {
   background: #000000;
 }
 
+/* ==========================================================================
+   MOBILE RESPONSIVE INPUT STANDARDIZATION & iOS AUTO-ZOOM PREVENTION
+   ========================================================================== */
+@media screen and (max-width: 768px) {
+  /* Prevent iOS Safari 16px auto-zoom & ensure comfortable touch targets */
+  input,
+  textarea,
+  select,
+  .ant-input,
+  .ant-input-password,
+  .ant-input-affix-wrapper,
+  .ant-input-number,
+  .ant-input-number-input,
+  .ant-select-selection-search-input {
+    font-size: 16px !important;
+    touch-action: manipulation !important;
+  }
+
+  .ant-input-affix-wrapper {
+    min-height: 44px !important;
+    padding: 8px 12px !important;
+    border-radius: 10px !important;
+  }
+
+  .ant-input-affix-wrapper input {
+    font-size: 16px !important;
+  }
+
+  /* Single Antd Inputs */
+  .ant-input:not(.ant-input-affix-wrapper input) {
+    min-height: 44px !important;
+    padding: 8px 12px !important;
+    border-radius: 10px !important;
+  }
+
+  /* Form Labels & Form Items on Mobile */
+  .ant-form-item {
+    margin-bottom: 14px !important;
+  }
+
+  .ant-form-item-label > label {
+    font-size: 11px !important;
+    letter-spacing: 0.05em !important;
+  }
+
+  /* Antd Select Selectors on Mobile */
+  .ant-select-single .ant-select-selector {
+    min-height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    border-radius: 10px !important;
+  }
+
+  .ant-select-single .ant-select-selection-item,
+  .ant-select-single .ant-select-selection-placeholder {
+    font-size: 15px !important;
+    line-height: 42px !important;
+  }
+
+  /* Modal responsive wrappers for on-screen keyboards */
+  .ant-modal {
+    max-width: calc(100vw - 24px) !important;
+    margin: 12px auto !important;
+  }
+
+  .ant-modal .ant-modal-content {
+    border-radius: 16px !important;
+    max-height: 92vh !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+}
+
 /* =============================================================
    ALEXANDRE LUXE VIP NOTIFICATION & TOAST REDESIGN (PARISIAN LUXURY)
    ============================================================= */

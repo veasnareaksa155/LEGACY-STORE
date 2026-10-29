@@ -151,7 +151,12 @@ const AdminAuthModal = ({ open, onClose, onLoginSuccess }) => {
             prefix={<MailOutlined className="text-amber-400/90 mr-1" />}
             placeholder="admin@legacystore.com"
             size="large"
-            className="bg-neutral-900/90 text-white border-neutral-700/80 hover:border-amber-500/60 focus:border-amber-400 rounded-lg text-xs"
+            type="email"
+            inputMode="email"
+            autoCapitalize="none"
+            autoCorrect="off"
+            autoComplete="email"
+            className="bg-neutral-900/90 text-white border-neutral-700/80 hover:border-amber-500/60 focus:border-amber-400 rounded-xl text-base sm:text-xs h-12 sm:h-11"
           />
         </Form.Item>
 
@@ -169,7 +174,8 @@ const AdminAuthModal = ({ open, onClose, onLoginSuccess }) => {
             prefix={<LockOutlined className="text-amber-400/90 mr-1" />}
             placeholder="••••••••••••"
             size="large"
-            className="bg-neutral-900/90 text-white border-neutral-700/80 hover:border-amber-500/60 focus:border-amber-400 rounded-lg text-xs"
+            autoComplete="current-password"
+            className="bg-neutral-900/90 text-white border-neutral-700/80 hover:border-amber-500/60 focus:border-amber-400 rounded-xl text-base sm:text-xs h-12 sm:h-11"
           />
         </Form.Item>
 

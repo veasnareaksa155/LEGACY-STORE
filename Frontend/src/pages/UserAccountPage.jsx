@@ -758,7 +758,8 @@ const UserAccountPage = ({
           >
             <Input
               prefix={<IdcardOutlined className="text-neutral-400" />}
-              className="text-xs py-2 rounded-md"
+              autoComplete="name"
+              className="text-sm sm:text-xs py-2.5 sm:py-2 rounded-xl h-11 sm:h-10"
             />
           </Form.Item>
 
@@ -771,7 +772,12 @@ const UserAccountPage = ({
           >
             <Input
               prefix={<MailOutlined className="text-neutral-400" />}
-              className="text-xs py-2 rounded-md"
+              type="email"
+              inputMode="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              autoComplete="email"
+              className="text-sm sm:text-xs py-2.5 sm:py-2 rounded-xl h-11 sm:h-10"
             />
           </Form.Item>
 
@@ -783,7 +789,10 @@ const UserAccountPage = ({
           >
             <Input
               prefix={<PhoneOutlined className="text-neutral-400" />}
-              className="text-xs py-2 rounded-md"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              className="text-sm sm:text-xs py-2.5 sm:py-2 rounded-xl h-11 sm:h-10"
             />
           </Form.Item>
 
@@ -798,7 +807,7 @@ const UserAccountPage = ({
             <Input.TextArea
               rows={3}
               prefix={<HomeOutlined className="text-neutral-400" />}
-              className="text-xs rounded-md"
+              className="text-sm sm:text-xs p-2.5 rounded-xl"
             />
           </Form.Item>
 

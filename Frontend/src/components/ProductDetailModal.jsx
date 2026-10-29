@@ -609,16 +609,17 @@ const ProductDetailModal = ({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <input
                         type="text"
-                        placeholder="Your Name (e.g. Alexandre)"
+                        placeholder="Your Name (e.g. VIP Client)"
                         value={userName}
+                        autoComplete="name"
                         onChange={(e) => setUserName(e.target.value)}
                         required
-                        className="w-full px-3 py-1.5 text-xs rounded border border-neutral-300 focus:border-black focus:outline-none bg-white font-sans"
+                        className="w-full px-3 py-2.5 sm:py-2 text-sm sm:text-xs rounded-lg border border-neutral-300 focus:border-black focus:outline-none bg-white font-sans h-11 sm:h-9"
                       />
                       <button
                         type="submit"
                         disabled={isSubmitting}
-                        className="w-full bg-black hover:bg-neutral-800 text-white font-extrabold text-xs uppercase tracking-wider px-3 py-1.5 rounded transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+                        className="w-full bg-black hover:bg-neutral-800 text-white font-extrabold text-xs uppercase tracking-wider px-3 py-2 sm:py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50 h-11 sm:h-9"
                       >
                         <SendOutlined className="text-xs" />
                         <span>
@@ -632,7 +633,7 @@ const ProductDetailModal = ({
                       placeholder="Write your rating & review on fit, quality, and design..."
                       value={userComment}
                       onChange={(e) => setUserComment(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded border border-neutral-300 focus:border-black focus:outline-none bg-white font-sans resize-none"
+                      className="w-full px-3 py-2.5 text-sm sm:text-xs rounded-lg border border-neutral-300 focus:border-black focus:outline-none bg-white font-sans resize-none"
                     />
                   </form>
 
