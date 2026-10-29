@@ -1,18 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { Modal, Form, Input, Button, Checkbox, notification, Spin, Tag } from "antd";
+import { Modal, Form, Input, Button, Checkbox, notification, Spin } from "antd";
 import {
   LockOutlined,
   MailOutlined,
   ArrowRightOutlined,
   UserAddOutlined,
   IdcardOutlined,
-  CheckCircleFilled,
-  PlusOutlined,
   SafetyCertificateOutlined,
   CrownOutlined,
-  PhoneOutlined,
-  HomeOutlined,
-  ThunderboltFilled,
+  KeyOutlined,
 } from "@ant-design/icons";
 import { createUser, loginUser, loginWithGoogle } from "../services/api";
 
@@ -43,25 +39,26 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
   const [mode, setMode] = useState("login");
   const [loading, setLoading] = useState(false);
 
-  // Google SSO State
+  // Real Google OAuth 2.0 State
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [googlePromptOpen, setGooglePromptOpen] = useState(false);
   const [googleActionIntent, setGoogleActionIntent] = useState("login"); // 'login' | 'register'
-  const [customGoogleEmail, setCustomGoogleEmail] = useState("");
-  const [customGoogleName, setCustomGoogleName] = useState("");
-  const [customGooglePhone, setCustomGooglePhone] = useState("");
-  const [customGoogleAddress, setCustomGoogleAddress] = useState("");
-  const [showCustomGoogleInput, setShowCustomGoogleInput] = useState(false);
+  const [clientIdModalOpen, setClientIdModalOpen] = useState(false);
+  const [clientIdInput, setClientIdInput] = useState(() => {
+    return (
+      import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+      localStorage.getItem("legacy_google_client_id") ||
+      ""
+    );
+  });
 
-  // Google Identity Services (GIS) dynamic initialization
+  // Dynamically load Google Identity Services script if not already present
   useEffect(() => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    if (clientId && !window.google?.accounts) {
+    if (!window.google?.accounts?.oauth2) {
       const script = document.createElement("script");
       script.src = "https://accounts.google.com/gsi/client";
       script.async = true;
       script.defer = true;
-      document.body.appendChild(script);
+      document.head.appendChild(script);
     }
   }, []);
 
@@ -132,7 +129,7 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
     }
   };
 
-  // Form submit handler for Register
+  // Form submit handler for standard Register
   const handleRegister = async (values) => {
     setLoading(true);
     try {
@@ -191,16 +188,15 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
     }
   };
 
-  // Google SSO Execution Handler
-  const executeGoogleLogin = async ({ email, name, avatar, phone, address }) => {
+  // Execute Backend Google Login / Registration with Verified Real Google Account
+  const executeGoogleLogin = async ({ email, name, avatar, google_id }) => {
     setGoogleLoading(true);
     try {
       const res = await loginWithGoogle({
         email: email.trim().toLowerCase(),
         name: name ? name.trim() : email.split("@")[0],
         avatar: avatar || null,
-        phone: phone ? phone.trim() : undefined,
-        address: address ? address.trim() : undefined,
+        google_id: google_id || undefined,
       });
 
       const apiUser = res.data || res;
@@ -220,8 +216,8 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
         memberSince: apiUser.created_at
           ? new Date(apiUser.created_at).getFullYear().toString()
           : "2026",
-        phone: apiUser.phone || phone || "",
-        address: apiUser.address || address || "",
+        phone: apiUser.phone || "",
+        address: apiUser.address || "",
         avatar: apiUser.avatar || apiUser.avatar_url || avatar || null,
         avatar_url: apiUser.avatar_url || apiUser.avatar || avatar || null,
       };
@@ -229,13 +225,13 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
       if (isNewUser || googleActionIntent === "register") {
         notification.success({
           message: "🎉 WELCOME TO LEGACY VIP MEMBERSHIP",
-          description: `Your VIP account has been successfully created with Google, ${userData.name}! Enjoy Black Diamond privileges.`,
+          description: `Your verified Google account (${userData.email}) is now active with Black Diamond VIP privileges!`,
           placement: "bottomRight",
           duration: 4,
         });
       } else {
         notification.success({
-          message: "GOOGLE SIGN-IN SUCCESSFUL",
+          message: "REAL GOOGLE SIGN-IN VERIFIED",
           description: `Welcome back to your VIP account, ${userData.name}!`,
           placement: "bottomRight",
           duration: 3,
@@ -245,15 +241,14 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
       if (onLoginSuccess) {
         onLoginSuccess(userData);
       }
-      setGooglePromptOpen(false);
       onClose();
     } catch (error) {
-      console.error("Google authentication failed:", error);
+      console.error("Google backend authentication failed:", error);
       notification.error({
         message: "GOOGLE AUTHENTICATION FAILED",
         description:
           error.response?.data?.message ||
-          "Unable to complete Google authentication. Please try again.",
+          "Unable to complete Google authentication on backend server. Please try again.",
         placement: "bottomRight",
         duration: 4,
       });
@@ -262,55 +257,120 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
     }
   };
 
-  // Google Credential Callback from official GIS
-  const handleGoogleCredentialResponse = (response) => {
-    if (response?.credential) {
-      try {
-        const base64Url = response.credential.split(".")[1];
-        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-        const jsonPayload = decodeURIComponent(
-          atob(base64)
-            .split("")
-            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-            .join("")
-        );
-        const payload = JSON.parse(jsonPayload);
-        executeGoogleLogin({
-          email: payload.email,
-          name: payload.name,
-          avatar: payload.picture,
-        });
-      } catch (e) {
-        console.error("Failed to decode Google token:", e);
-        setGooglePromptOpen(true);
-      }
+  // Launch Real Google Identity Services (GIS) Verification Popup
+  const launchRealGooglePopup = (activeClientId, intent = "login") => {
+    setGoogleActionIntent(intent);
+
+    if (!window.google?.accounts?.oauth2) {
+      notification.warning({
+        message: "GOOGLE SCRIPT LOADING",
+        description:
+          "Google verification script is loading in your browser. Please click again in 2 seconds.",
+        placement: "bottomRight",
+      });
+      return;
+    }
+
+    setGoogleLoading(true);
+    try {
+      const tokenClient = window.google.accounts.oauth2.initTokenClient({
+        client_id: activeClientId,
+        scope: "email profile openid",
+        callback: async (tokenResponse) => {
+          if (tokenResponse?.error) {
+            console.warn("Google OAuth popup closed or error:", tokenResponse.error);
+            setGoogleLoading(false);
+            if (tokenResponse.error !== "popup_closed_by_user") {
+              notification.error({
+                message: "GOOGLE AUTH ERROR",
+                description: `Google returned an error: ${tokenResponse.error_description || tokenResponse.error}`,
+                placement: "bottomRight",
+              });
+            }
+            return;
+          }
+
+          if (tokenResponse?.access_token) {
+            try {
+              // Retrieve verified Google Profile from official Google UserInfo endpoint
+              const userInfoRes = await fetch(
+                "https://www.googleapis.com/oauth2/v3/userinfo",
+                {
+                  headers: {
+                    Authorization: `Bearer ${tokenResponse.access_token}`,
+                  },
+                }
+              );
+              const googleUser = await userInfoRes.json();
+
+              if (!googleUser.email) {
+                throw new Error("Google did not return a verified email address.");
+              }
+
+              // Send real verified data directly to Backend
+              await executeGoogleLogin({
+                email: googleUser.email,
+                name: googleUser.name || googleUser.email.split("@")[0],
+                avatar: googleUser.picture || null,
+                google_id: googleUser.sub,
+              });
+            } catch (fetchErr) {
+              console.error("Failed to fetch verified Google user profile:", fetchErr);
+              notification.error({
+                message: "GOOGLE VERIFICATION FAILED",
+                description: "Could not retrieve real profile details from Google servers.",
+                placement: "bottomRight",
+              });
+            } finally {
+              setGoogleLoading(false);
+            }
+          }
+        },
+      });
+
+      // Directly opens Google's OFFICIAL OAuth verification popup window
+      tokenClient.requestAccessToken({ prompt: "select_account" });
+    } catch (err) {
+      console.error("Failed to launch Google OAuth popup:", err);
+      setGoogleLoading(false);
+      notification.error({
+        message: "GOOGLE POPUP BLOCKED OR FAILED",
+        description: err.message || "Please ensure browser popups are allowed.",
+        placement: "bottomRight",
+      });
     }
   };
 
-  // Trigger Google SSO click with specific action intent ('login' | 'register')
-  const handleGoogleSignInClick = (intent = "login") => {
+  // Click handler for "Sign in with Google" and "Register with Google"
+  const handleGoogleAuthClick = (intent = "login") => {
     setGoogleActionIntent(intent);
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    if (clientId && window.google?.accounts?.id) {
-      try {
-        window.google.accounts.id.initialize({
-          client_id: clientId,
-          callback: handleGoogleCredentialResponse,
-        });
-        window.google.accounts.id.prompt((promptNotification) => {
-          if (
-            promptNotification.isNotDisplayed() ||
-            promptNotification.isSkippedMoment()
-          ) {
-            setGooglePromptOpen(true);
-          }
-        });
-        return;
-      } catch (err) {
-        console.warn("GIS prompt error, opening chooser fallback:", err);
-      }
+    const activeClientId =
+      clientIdInput ||
+      import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+      localStorage.getItem("legacy_google_client_id");
+
+    if (!activeClientId) {
+      // Prompt user once for their Google OAuth Client ID if not yet defined in .env
+      setClientIdModalOpen(true);
+      return;
     }
-    setGooglePromptOpen(true);
+
+    launchRealGooglePopup(activeClientId, intent);
+  };
+
+  // Save Client ID and immediately trigger the real Google popup
+  const handleSaveClientIdAndLaunch = () => {
+    const trimmed = clientIdInput.trim();
+    if (!trimmed) {
+      notification.warning({
+        message: "CLIENT ID REQUIRED",
+        description: "Please enter your Google Cloud OAuth Client ID.",
+      });
+      return;
+    }
+    localStorage.setItem("legacy_google_client_id", trimmed);
+    setClientIdModalOpen(false);
+    launchRealGooglePopup(trimmed, googleActionIntent);
   };
 
   return (
@@ -353,16 +413,20 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
                 Access your personal purchases, order tracking, and wishlist.
               </p>
 
-              {/* 🌟 1-Click Sign In with Google Button */}
+              {/* 🌟 REAL GOOGLE VERIFY BUTTON (Opens accounts.google.com) */}
               <button
                 type="button"
-                onClick={() => handleGoogleSignInClick("login")}
+                onClick={() => handleGoogleAuthClick("login")}
                 disabled={loading || googleLoading}
-                className="w-full h-10 flex items-center justify-center gap-2.5 bg-white hover:bg-neutral-50 active:bg-neutral-100 text-neutral-800 font-bold text-xs uppercase tracking-wider border border-neutral-300 hover:border-black rounded-lg shadow-2xs transition-all duration-200 cursor-pointer mb-3 group"
+                className="w-full h-10.5 flex items-center justify-center gap-2.5 bg-white hover:bg-neutral-50 active:bg-neutral-100 text-neutral-800 font-bold text-xs uppercase tracking-wider border border-neutral-300 hover:border-black rounded-lg shadow-2xs transition-all duration-200 cursor-pointer mb-3 group"
               >
-                <GoogleIcon className="w-4 h-4 shrink-0" />
+                {googleLoading ? (
+                  <Spin size="small" />
+                ) : (
+                  <GoogleIcon className="w-4 h-4 shrink-0" />
+                )}
                 <span className="group-hover:text-black">
-                  {googleLoading ? "Connecting to Google..." : "Sign in with Google"}
+                  {googleLoading ? "Verifying with Google..." : "Sign in with Google"}
                 </span>
               </button>
 
@@ -473,19 +537,23 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
                 Register for exclusive order tracking, saved wishlists, and drops.
               </p>
 
-              {/* 🌟 1-Click Register with Google Button (VIP Highlighted) */}
+              {/* 🌟 REAL GOOGLE VERIFY BUTTON FOR REGISTER (Opens accounts.google.com) */}
               <button
                 type="button"
-                onClick={() => handleGoogleSignInClick("register")}
+                onClick={() => handleGoogleAuthClick("register")}
                 disabled={loading || googleLoading}
                 className="w-full h-10.5 flex items-center justify-center gap-2 bg-neutral-950 hover:bg-black active:bg-neutral-800 text-white font-extrabold text-xs uppercase tracking-wider rounded-lg shadow-md transition-all duration-200 cursor-pointer mb-2.5 group border border-neutral-800 hover:border-amber-500/50"
               >
-                <GoogleIcon className="w-4 h-4 shrink-0" />
+                {googleLoading ? (
+                  <Spin size="small" />
+                ) : (
+                  <GoogleIcon className="w-4 h-4 shrink-0" />
+                )}
                 <span>
-                  {googleLoading ? "Connecting to Google..." : "Register with Google"}
+                  {googleLoading ? "Verifying with Google..." : "Register with Google"}
                 </span>
-                <span className="text-[9px] font-mono bg-amber-400 text-black px-1.5 py-0.5 rounded-sm font-black ml-1 uppercase">
-                  1-Click VIP
+                <span className="text-[9px] font-mono bg-amber-400 text-black px-1.5 py-0.2 rounded-sm font-black ml-1 uppercase">
+                  Real Google Verify
                 </span>
               </button>
 
@@ -693,229 +761,66 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
         </div>
       </Modal>
 
-      {/* ================= GOOGLE 1-CLICK AUTH & REGISTRATION MODAL ================= */}
+      {/* ================= GOOGLE OAUTH 2.0 CLIENT ID SETUP PROMPT ================= */}
       <Modal
-        open={googlePromptOpen}
-        onCancel={() => {
-          if (!googleLoading) {
-            setGooglePromptOpen(false);
-            setShowCustomGoogleInput(false);
-          }
-        }}
+        open={clientIdModalOpen}
+        onCancel={() => setClientIdModalOpen(false)}
         footer={null}
-        width={440}
+        width={450}
         centered
         destroyOnClose
         styles={{ body: { padding: "26px 22px" } }}
       >
         <div className="text-center pb-3">
           <div className="flex justify-center mb-2.5">
-            <GoogleIcon className="w-8 h-8" />
+            <GoogleIcon className="w-9 h-9" />
           </div>
           <h3 className="text-lg font-bold text-neutral-900 tracking-tight mb-1">
-            {googleActionIntent === "register"
-              ? "Register VIP Account with Google"
-              : "Sign in with Google"}
+            Real Google Account Verification
           </h3>
-          <p className="text-xs text-neutral-500">
-            {googleActionIntent === "register"
-              ? "Instant 1-Click VIP Membership Registration for "
-              : "Choose an account to continue to "}
-            <span className="font-bold text-black">LEGACY STORE</span>
+          <p className="text-xs text-neutral-500 leading-relaxed max-w-sm mx-auto">
+            To open the real Google authentication popup directly on{" "}
+            <span className="font-mono text-neutral-700 font-semibold">accounts.google.com</span>, enter your Google Cloud OAuth 2.0 Web Client ID:
           </p>
         </div>
 
-        {/* VIP Perks Badge Banner for Register Intent */}
-        {googleActionIntent === "register" && (
-          <div className="bg-gradient-to-r from-amber-50 via-yellow-50/50 to-amber-50 border border-amber-200/80 rounded-xl p-3 mb-3.5 shadow-2xs">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-bold text-amber-800 uppercase tracking-widest flex items-center gap-1.5 font-mono">
-                <CrownOutlined className="text-amber-600" />
-                BLACK DIAMOND VIP PRIVILEGES
-              </span>
-              <span className="text-[9px] bg-amber-400 text-black px-1.5 py-0.2 rounded font-black font-mono">
-                COMPLIMENTARY
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-1.5 text-[10px] text-neutral-600 font-light pt-1">
-              <span className="flex items-center gap-1">
-                <span className="text-amber-500">✓</span> No password needed
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="text-amber-500">✓</span> Real-time DHL tracking
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="text-amber-500">✓</span> Exclusive drop alerts
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="text-amber-500">✓</span> 24/7 VIP Concierge
-              </span>
-            </div>
+        <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-3 mb-3.5 text-xs text-amber-900">
+          <div className="font-bold flex items-center gap-1.5 mb-1 font-mono text-[11px] uppercase">
+            <KeyOutlined className="text-amber-600" />
+            <span>Google Cloud Client ID Required</span>
           </div>
-        )}
+          <p className="text-[11px] leading-relaxed text-amber-800">
+            Obtain this from your Google Cloud Console project (<b>APIs & Services &gt; Credentials &gt; OAuth 2.0 Client IDs &gt; Web application</b>).
+          </p>
+        </div>
 
-        {googleLoading ? (
-          <div className="py-10 flex flex-col items-center justify-center space-y-3">
-            <Spin size="large" />
-            <span className="text-xs font-mono text-neutral-600 uppercase tracking-widest font-bold">
-              {googleActionIntent === "register"
-                ? "Creating your VIP profile with Google..."
-                : "Authenticating with Google..."}
-            </span>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-[11px] font-bold uppercase text-neutral-700 mb-1">
+              Google OAuth Client ID
+            </label>
+            <Input
+              placeholder="e.g. 1234567890-abcdefg.apps.googleusercontent.com"
+              value={clientIdInput}
+              onChange={(e) => setClientIdInput(e.target.value)}
+              className="text-xs py-2 rounded-lg"
+            />
           </div>
-        ) : (
-          <div className="space-y-3">
-            {/* Primary / Detected Google Account Card */}
-            <div
-              onClick={() =>
-                executeGoogleLogin({
-                  email: "veasnareaksa155@gmail.com",
-                  name: "Veasna Reaksa",
-                  phone: "+855 88 523 2761",
-                })
-              }
-              className="p-3.5 rounded-xl border border-neutral-200 hover:border-blue-500 hover:bg-blue-50/40 flex items-center justify-between cursor-pointer transition-all duration-200 group shadow-2xs"
-            >
-              <div className="flex items-center space-x-3 min-w-0">
-                <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold text-base flex items-center justify-center shrink-0 shadow-xs">
-                  V
-                </div>
-                <div className="min-w-0 text-left">
-                  <div className="flex items-center space-x-1.5">
-                    <span className="font-bold text-xs text-neutral-900 group-hover:text-blue-600 truncate">
-                      Veasna Reaksa
-                    </span>
-                    <CheckCircleFilled className="text-blue-500 text-xs" />
-                  </div>
-                  <span className="text-[11px] text-neutral-500 block truncate">
-                    veasnareaksa155@gmail.com
-                  </span>
-                </div>
-              </div>
-              <div className="flex flex-col items-end">
-                <span className="text-[9px] font-mono text-blue-600 bg-blue-100/70 px-2 py-0.5 rounded-full font-bold uppercase">
-                  {googleActionIntent === "register" ? "1-Click Register" : "Active"}
-                </span>
-              </div>
-            </div>
 
-            {/* Custom Google Account Form Toggle */}
-            {!showCustomGoogleInput ? (
-              <button
-                type="button"
-                onClick={() => setShowCustomGoogleInput(true)}
-                className="w-full p-3 rounded-xl border border-dashed border-neutral-300 hover:border-neutral-500 hover:bg-neutral-50 flex items-center justify-center gap-2 text-xs font-bold text-neutral-700 cursor-pointer transition-colors"
-              >
-                <PlusOutlined className="text-xs" />
-                <span>
-                  {googleActionIntent === "register"
-                    ? "Register with another Google account"
-                    : "Use another Google account"}
-                </span>
-              </button>
-            ) : (
-              <div className="p-3.5 bg-neutral-50 rounded-xl border border-neutral-200 space-y-2.5 text-left">
-                <div>
-                  <label className="block text-[10px] font-bold uppercase text-neutral-600 mb-1">
-                    Full Name {googleActionIntent === "register" ? "*" : "(Optional)"}
-                  </label>
-                  <Input
-                    prefix={<IdcardOutlined className="text-neutral-400" />}
-                    placeholder="e.g. Alexandre Moreau"
-                    value={customGoogleName}
-                    onChange={(e) => setCustomGoogleName(e.target.value)}
-                    className="text-xs py-1.5 rounded-md"
-                  />
-                </div>
+          <Button
+            type="primary"
+            block
+            onClick={handleSaveClientIdAndLaunch}
+            className="bg-neutral-950 hover:bg-black text-white font-extrabold text-xs uppercase tracking-wider h-11 rounded-lg shadow-md flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <span>LAUNCH REAL GOOGLE POPUP</span>
+            <ArrowRightOutlined />
+          </Button>
 
-                <div>
-                  <label className="block text-[10px] font-bold uppercase text-neutral-600 mb-1">
-                    Google Email Address *
-                  </label>
-                  <Input
-                    type="email"
-                    prefix={<MailOutlined className="text-neutral-400" />}
-                    placeholder="name@gmail.com"
-                    value={customGoogleEmail}
-                    onChange={(e) => setCustomGoogleEmail(e.target.value)}
-                    className="text-xs py-1.5 rounded-md"
-                  />
-                </div>
-
-                {/* Additional VIP details when registering with Google */}
-                {googleActionIntent === "register" && (
-                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-neutral-200/70">
-                    <div>
-                      <label className="block text-[9px] font-bold uppercase text-neutral-600 mb-1">
-                        Phone / WhatsApp <span className="text-neutral-400 font-normal">(Optional)</span>
-                      </label>
-                      <Input
-                        prefix={<PhoneOutlined className="text-neutral-400" />}
-                        placeholder="+855 12 345 678"
-                        value={customGooglePhone}
-                        onChange={(e) => setCustomGooglePhone(e.target.value)}
-                        className="text-xs py-1.5 rounded-md"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[9px] font-bold uppercase text-neutral-600 mb-1">
-                        Delivery City <span className="text-neutral-400 font-normal">(Optional)</span>
-                      </label>
-                      <Input
-                        prefix={<HomeOutlined className="text-neutral-400" />}
-                        placeholder="Phnom Penh"
-                        value={customGoogleAddress}
-                        onChange={(e) => setCustomGoogleAddress(e.target.value)}
-                        className="text-xs py-1.5 rounded-md"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex gap-2 pt-1.5">
-                  <Button
-                    size="small"
-                    onClick={() => setShowCustomGoogleInput(false)}
-                    className="text-xs flex-1 rounded-md"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="primary"
-                    size="small"
-                    disabled={!customGoogleEmail.trim()}
-                    onClick={() =>
-                      executeGoogleLogin({
-                        email: customGoogleEmail,
-                        name: customGoogleName,
-                        phone: customGooglePhone,
-                        address: customGoogleAddress,
-                      })
-                    }
-                    className="text-xs flex-1 bg-neutral-900 hover:bg-black rounded-md font-bold"
-                  >
-                    {googleActionIntent === "register"
-                      ? "Create VIP Account"
-                      : "Continue"}
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Security & Disclaimer Footer */}
-            <div className="pt-3 border-t border-neutral-100 text-center">
-              <p className="text-[10px] text-neutral-400 leading-relaxed font-light">
-                {googleActionIntent === "register"
-                  ? "By registering with Google, your account receives immediate Black Diamond VIP membership privileges."
-                  : "To continue, Google will share your name, email address, language preference, and profile picture with LEGACY STORE."}
-              </p>
-              <div className="flex items-center justify-center gap-1.5 text-[9px] text-neutral-500 font-mono mt-1.5">
-                <SafetyCertificateOutlined className="text-emerald-500" />
-                <span>256-Bit SSL Secured Google OAuth 2.0</span>
-              </div>
-            </div>
-          </div>
-        )}
+          <p className="text-[10px] text-neutral-400 text-center font-light pt-1">
+            This ID is stored locally in your environment and connects directly to Google OAuth servers.
+          </p>
+        </div>
       </Modal>
     </>
   );
