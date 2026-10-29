@@ -291,6 +291,16 @@ export const loginUser = async (credentials) => {
   }
 };
 
+export const loginWithGoogle = async (googleUserData) => {
+  try {
+    const response = await api.post("/auth/google", googleUserData);
+    return response.data;
+  } catch (error) {
+    console.error("Error signing in with Google:", error);
+    throw error;
+  }
+};
+
 export const fetchUsers = async () => {
   try {
     const data = await requestFetch("/users");

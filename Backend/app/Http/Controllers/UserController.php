@@ -49,6 +49,70 @@ class UserController extends Controller
         ], 401);
     }
 
+    public function googleLogin(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => 'required|email',
+            'name' => 'nullable|string|max:255',
+            'phone' => 'nullable|string|max:50',
+            'address' => 'nullable|string',
+            'tier' => 'nullable|string',
+            'avatar' => 'nullable|string',
+            'avatar_url' => 'nullable|string',
+            'google_id' => 'nullable|string',
+        ]);
+
+        $avatar = $validated['avatar'] ?? ($validated['avatar_url'] ?? null);
+        $user = User::where('email', $validated['email'])->first();
+
+        if ($user) {
+            $updated = false;
+            // If user has no avatar and Google provides one, update it
+            if (!empty($avatar) && empty($user->avatar)) {
+                $user->avatar = $avatar;
+                $updated = true;
+            }
+            if (!empty($validated['phone']) && empty($user->phone)) {
+                $user->phone = $validated['phone'];
+                $updated = true;
+            }
+            if (!empty($validated['address']) && empty($user->address)) {
+                $user->address = $validated['address'];
+                $updated = true;
+            }
+            if ($updated) {
+                $user->save();
+            }
+
+            return response()->json([
+                'success' => true,
+                'is_new_user' => false,
+                'message' => 'Signed in with Google successfully',
+                'data' => $user
+            ]);
+        }
+
+        // New Google user VIP registration
+        $name = !empty($validated['name']) ? $validated['name'] : explode('@', $validated['email'])[0];
+        $newUser = User::create([
+            'name' => $name,
+            'email' => $validated['email'],
+            'password' => Hash::make('google_oauth_' . bin2hex(random_bytes(10))),
+            'role' => 'user',
+            'phone' => $validated['phone'] ?? null,
+            'address' => $validated['address'] ?? null,
+            'tier' => $validated['tier'] ?? 'BLACK DIAMOND VIP',
+            'avatar' => $avatar,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'is_new_user' => true,
+            'message' => 'VIP Account registered and authenticated via Google',
+            'data' => $newUser
+        ], 201);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
