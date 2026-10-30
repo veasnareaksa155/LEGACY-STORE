@@ -4,7 +4,6 @@ import { luxuryTheme, adminDarkTheme } from "./theme/antdTheme";
 import { fetchCategories, fetchProducts } from "./services/api";
 
 import Navbar from "./components/Navbar";
-import ProductDetailModal from "./components/ProductDetailModal";
 import CartDrawer from "./components/CartDrawer";
 import WishlistDrawer from "./components/WishlistDrawer";
 import CheckoutModal from "./components/CheckoutModal";
@@ -21,6 +20,7 @@ import LuxuryLoader from "./components/LuxuryLoader";
 // Full View Pages
 import HomePage from "./pages/HomePage";
 import ShopPage from "./pages/ShopPage";
+import ProductDetailPage from "./pages/ProductDetailPage";
 import AboutPage from "./pages/AboutPage";
 import ContactPage from "./pages/ContactPage";
 import UserAccountPage from "./pages/UserAccountPage";
@@ -64,6 +64,13 @@ function App() {
 
   // Modals & Drawers state
   const [selectedProduct, setSelectedProduct] = useState(null);
+
+  const handleOpenProduct = (prod) => {
+    if (!prod) return;
+    setSelectedProduct(prod);
+    setActivePage("product");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   const [cartOpen, setCartOpen] = useState(false);
   const [wishlistOpen, setWishlistOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -486,7 +493,7 @@ function App() {
     }
   }, [currentUser, activePage]);
 
-  // Route Listener for /admin and /delivery URL entry & URL sync
+  // Route Listener for /admin, /delivery and /product URL entry & URL sync
   useEffect(() => {
     const checkRoute = () => {
       const path = window.location.pathname;
@@ -495,12 +502,23 @@ function App() {
         setActivePage("delivery");
       } else if (path === "/admin" || search.includes("admin")) {
         setActivePage("admin");
+      } else if (path.startsWith("/product/") || search.includes("product=")) {
+        const idMatch =
+          path.match(/\/product\/(\d+)/) || search.match(/product=(\d+)/);
+        if (idMatch && idMatch[1] && products.length > 0) {
+          const targetId = Number(idMatch[1]);
+          const found = products.find((p) => p.id === targetId);
+          if (found) {
+            setSelectedProduct(found);
+            setActivePage("product");
+          }
+        }
       }
     };
     checkRoute();
     window.addEventListener("popstate", checkRoute);
     return () => window.removeEventListener("popstate", checkRoute);
-  }, []);
+  }, [products]);
 
   // Sync browser URL bar with activePage state
   useEffect(() => {
@@ -512,14 +530,22 @@ function App() {
     ) {
       window.history.pushState({}, "", "/admin");
     } else if (
+      activePage === "product" &&
+      selectedProduct &&
+      window.location.pathname !== `/product/${selectedProduct.id}`
+    ) {
+      window.history.pushState({}, "", `/product/${selectedProduct.id}`);
+    } else if (
       activePage !== "admin" &&
       activePage !== "delivery" &&
+      activePage !== "product" &&
       (window.location.pathname === "/admin" ||
-        window.location.pathname === "/delivery")
+        window.location.pathname === "/delivery" ||
+        window.location.pathname.startsWith("/product/"))
     ) {
       window.history.pushState({}, "", "/");
     }
-  }, [activePage]);
+  }, [activePage, selectedProduct]);
 
   // Handle Mobile Delivery Driver App Layout (/delivery route)
   if (activePage === "delivery") {
@@ -621,7 +647,7 @@ function App() {
             <HomePage
               products={products}
               loading={loading}
-              onQuickView={(prod) => setSelectedProduct(prod)}
+              onQuickView={handleOpenProduct}
               onAddToCart={handleAddToCart}
               wishlistItems={wishlistItems}
               onToggleWishlist={handleToggleWishlist}
@@ -641,10 +667,31 @@ function App() {
               onSearchChange={setSearchQuery}
               sortBy={sortBy}
               onSortChange={setSortBy}
-              onQuickView={(prod) => setSelectedProduct(prod)}
+              onQuickView={handleOpenProduct}
               onAddToCart={handleAddToCart}
               wishlistItems={wishlistItems}
               onToggleWishlist={handleToggleWishlist}
+            />
+          )}
+
+          {activePage === "product" && (
+            <ProductDetailPage
+              product={selectedProduct}
+              allProducts={products}
+              onNavigateBack={() => setActivePage("shop")}
+              onNavigateShop={() => {
+                setActivePage("shop");
+                setActiveCategory("all");
+              }}
+              onAddToCart={handleAddToCart}
+              isWishlisted={
+                selectedProduct
+                  ? wishlistItems.some((i) => i.id === selectedProduct.id)
+                  : false
+              }
+              onToggleWishlist={handleToggleWishlist}
+              onSelectProduct={handleOpenProduct}
+              currentUser={currentUser}
             />
           )}
 
@@ -662,7 +709,7 @@ function App() {
               wishlistItems={wishlistItems}
               onAddToCart={handleAddToCart}
               onRemoveFromWishlist={handleRemoveFromWishlist}
-              onQuickView={(prod) => setSelectedProduct(prod)}
+              onQuickView={handleOpenProduct}
               onNavigateShop={() => setActivePage("shop")}
               onOpenDeliveryTracking={(ord) => {
                 if (ord) setActiveDeliveryOrder(ord);
@@ -687,21 +734,6 @@ function App() {
               setActivePage("account");
             }
           }}
-        />
-
-        {/* Product Quick View Detail Modal */}
-        <ProductDetailModal
-          product={selectedProduct}
-          open={!!selectedProduct}
-          onClose={() => setSelectedProduct(null)}
-          onAddToCart={handleAddToCart}
-          isWishlisted={
-            selectedProduct
-              ? wishlistItems.some((i) => i.id === selectedProduct.id)
-              : false
-          }
-          onToggleWishlist={handleToggleWishlist}
-          currentUser={currentUser}
         />
 
         {/* Cart Drawer */}

@@ -72,18 +72,18 @@ const ProductCard = ({
           )}
         </div>
 
-        {/* Centered Quick View Button Overlay on Hover */}
+        {/* Centered View Details Button Overlay on Hover */}
         <div className="absolute inset-0 flex items-center justify-center z-10 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none">
           <button
             onClick={(e) => {
               e.stopPropagation();
               onQuickView(product);
             }}
-            className="pointer-events-auto bg-white/95 hover:bg-white text-black px-4 py-2 sm:px-5 sm:py-2.5 rounded-full text-xs font-black uppercase tracking-widest flex items-center gap-2 shadow-2xl transform scale-90 group-hover:scale-100 transition-all duration-300 border border-neutral-200 backdrop-blur-md cursor-pointer"
-            title="Quick View"
+            className="pointer-events-auto bg-white/95 hover:bg-black hover:text-white text-black px-4 py-2 sm:px-5 sm:py-2.5 rounded-full text-xs font-black uppercase tracking-widest flex items-center gap-2 shadow-2xl transform scale-90 group-hover:scale-100 transition-all duration-300 border border-neutral-200 backdrop-blur-md cursor-pointer"
+            title="View Product Page"
           >
             <EyeOutlined className="text-sm" />
-            <span>QUICK VIEW</span>
+            <span>VIEW DETAILS</span>
           </button>
         </div>
 

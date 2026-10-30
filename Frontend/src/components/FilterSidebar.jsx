@@ -6,6 +6,7 @@ import {
   TagOutlined,
   ThunderboltOutlined,
   DollarOutlined,
+  CloseOutlined,
 } from "@ant-design/icons";
 import { Slider } from "antd";
 
@@ -67,25 +68,120 @@ const FilterSidebar = ({
     selectedSizes.length > 0 ||
     selectedColors.length > 0;
 
+  const activeFiltersCount =
+    (activeCategory !== "all" ? 1 : 0) +
+    (priceRange[0] > 0 || priceRange[1] < 300 ? 1 : 0) +
+    selectedStatus.length +
+    selectedSizes.length +
+    selectedColors.length;
+
   return (
     <aside className="bg-white rounded-2xl border border-neutral-200/90 p-5 sm:p-6 shadow-xl shadow-black/5 space-y-6 text-neutral-900">
       {/* Header & Reset Button */}
-      <div className="flex items-center justify-between pb-4 border-b border-neutral-200">
-        <div className="flex items-center gap-2">
-          <FilterOutlined className="text-amber-500 text-sm sm:text-base" />
-          <h3 className="font-serif font-black uppercase text-sm sm:text-base text-black tracking-wider">
-            FILTER CATALOGUE
-          </h3>
-        </div>
-        {hasActiveFilters && (
+      <div className="pb-4 border-b border-neutral-200 space-y-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 rounded-lg bg-neutral-100 flex items-center justify-center shrink-0 border border-neutral-200/70">
+              <FilterOutlined className="text-amber-500 text-xs" />
+            </div>
+            <h3 className="font-serif font-black uppercase text-xs sm:text-sm text-black tracking-wider whitespace-nowrap truncate m-0">
+              FILTER CATALOGUE
+            </h3>
+          </div>
+
+          {/* Reset Filter Button - always present and beautifully styled */}
           <button
-            onClick={onResetFilters}
-            className="text-[10px] sm:text-xs font-mono font-bold uppercase text-neutral-500 hover:text-amber-600 flex items-center gap-1 transition-colors cursor-pointer"
-            title="Reset All Filters"
+            type="button"
+            onClick={hasActiveFilters ? onResetFilters : undefined}
+            disabled={!hasActiveFilters}
+            className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold uppercase transition-all duration-200 ${
+              hasActiveFilters
+                ? "bg-black text-amber-400 hover:bg-neutral-800 shadow-xs cursor-pointer border border-black active:scale-95"
+                : "bg-neutral-100 text-neutral-400 border border-neutral-200/80 cursor-default opacity-60"
+            }`}
+            title={
+              hasActiveFilters
+                ? `Reset ${activeFiltersCount} active filter${activeFiltersCount > 1 ? "s" : ""}`
+                : "No active filters"
+            }
           >
-            <ReloadOutlined className="text-[10px]" />
+            <ReloadOutlined
+              className={`text-[9px] ${hasActiveFilters ? "transition-transform group-hover:rotate-180" : ""}`}
+            />
             <span>RESET</span>
+            {activeFiltersCount > 0 && (
+              <span className="w-4 h-4 rounded-full bg-amber-400 text-black text-[9px] font-extrabold flex items-center justify-center -mr-0.5">
+                {activeFiltersCount}
+              </span>
+            )}
           </button>
+        </div>
+
+        {/* Active Filter Badges Pills (if filters are active) */}
+        {hasActiveFilters && (
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            {activeCategory !== "all" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase bg-neutral-100 text-neutral-800 border border-neutral-200">
+                <span>Cat: {activeCategory}</span>
+                <CloseOutlined
+                  onClick={() => onSelectCategory("all")}
+                  className="cursor-pointer hover:text-rose-600 text-[8px]"
+                />
+              </span>
+            )}
+            {(priceRange[0] > 0 || priceRange[1] < 300) && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase bg-neutral-100 text-neutral-800 border border-neutral-200">
+                <span>${priceRange[0]}-${priceRange[1]}</span>
+                <CloseOutlined
+                  onClick={() => onPriceChange([0, 300])}
+                  className="cursor-pointer hover:text-rose-600 text-[8px]"
+                />
+              </span>
+            )}
+            {selectedStatus.map((st) => (
+              <span
+                key={st}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase bg-amber-50 text-amber-900 border border-amber-300"
+              >
+                <span>{st === "new" ? "New Drop" : "Sale"}</span>
+                <CloseOutlined
+                  onClick={() => onToggleStatus(st)}
+                  className="cursor-pointer hover:text-rose-600 text-[8px]"
+                />
+              </span>
+            ))}
+            {selectedSizes.map((sz) => (
+              <span
+                key={sz}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase bg-neutral-100 text-neutral-800 border border-neutral-200"
+              >
+                <span>Size: {sz}</span>
+                <CloseOutlined
+                  onClick={() => onToggleSize(sz)}
+                  className="cursor-pointer hover:text-rose-600 text-[8px]"
+                />
+              </span>
+            ))}
+            {selectedColors.map((hex) => {
+              const matchedCol = colorOptions.find((c) => c.hex === hex);
+              return (
+                <span
+                  key={hex}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase bg-neutral-100 text-neutral-800 border border-neutral-200"
+                >
+                  <span
+                    className="w-2 h-2 rounded-full border border-neutral-400 inline-block"
+                    style={{ backgroundColor: hex }}
+                  />
+                  <span>{matchedCol ? matchedCol.name.split(" ")[0] : "Color"}</span>
+                  <CloseOutlined
+                    onClick={() => onToggleColor(hex)}
+                    className="cursor-pointer hover:text-rose-600 text-[8px]"
+                  />
+                </span>
+              );
+            })}
+          </div>
         )}
       </div>
 
