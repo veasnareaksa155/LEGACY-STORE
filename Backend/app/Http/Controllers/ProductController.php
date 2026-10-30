@@ -89,12 +89,12 @@ class ProductController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        foreach (['gallery', 'sizes', 'colors'] as $field) {
+        foreach (['gallery', 'sizes', 'colors', 'color_images'] as $field) {
             if ($request->has($field) && is_string($request->$field)) {
                 $decoded = json_decode($request->$field, true);
                 if (is_array($decoded)) {
                     $request->merge([$field => $decoded]);
-                } else if (!empty(trim($request->$field))) {
+                } else if (!empty(trim($request->$field)) && $field !== 'color_images') {
                     $request->merge([$field => array_map('trim', explode(',', $request->$field))]);
                 }
             }
@@ -108,6 +108,7 @@ class ProductController extends Controller
             'description' => 'nullable|string',
             'sizes' => 'nullable|array',
             'colors' => 'nullable|array',
+            'color_images' => 'nullable|array',
             'gallery' => 'nullable|array',
             'image_url' => 'required|string',
             'is_featured' => 'nullable|boolean',
@@ -118,6 +119,7 @@ class ProductController extends Controller
         $validated['slug'] = \Illuminate\Support\Str::slug($validated['name']) . '-' . time();
         $validated['sizes'] = $validated['sizes'] ?? ["S", "M", "L", "XL"];
         $validated['colors'] = $validated['colors'] ?? ["Black", "White"];
+        $validated['color_images'] = $validated['color_images'] ?? [];
         $validated['gallery'] = $validated['gallery'] ?? [];
 
         $product = Product::create($validated);
@@ -137,12 +139,12 @@ class ProductController extends Controller
             return response()->json(['success' => false, 'message' => 'Product not found'], 404);
         }
 
-        foreach (['gallery', 'sizes', 'colors'] as $field) {
+        foreach (['gallery', 'sizes', 'colors', 'color_images'] as $field) {
             if ($request->has($field) && is_string($request->$field)) {
                 $decoded = json_decode($request->$field, true);
                 if (is_array($decoded)) {
                     $request->merge([$field => $decoded]);
-                } else if (!empty(trim($request->$field))) {
+                } else if (!empty(trim($request->$field)) && $field !== 'color_images') {
                     $request->merge([$field => array_map('trim', explode(',', $request->$field))]);
                 }
             }
@@ -156,6 +158,7 @@ class ProductController extends Controller
             'description' => 'nullable|string',
             'sizes' => 'nullable|array',
             'colors' => 'nullable|array',
+            'color_images' => 'nullable|array',
             'gallery' => 'nullable|array',
             'image_url' => 'sometimes|required|string',
             'is_featured' => 'nullable|boolean',

@@ -20,6 +20,7 @@ class Product extends Model
         'description',
         'sizes',
         'colors',
+        'color_images',
         'gallery',
         'image_url',
         'is_featured',
@@ -30,6 +31,7 @@ class Product extends Model
     protected $casts = [
         'sizes' => 'array',
         'colors' => 'array',
+        'color_images' => 'array',
         'gallery' => 'array',
         'price' => 'float',
         'original_price' => 'float',

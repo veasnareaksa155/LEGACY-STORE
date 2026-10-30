@@ -968,10 +968,21 @@ const AdminDashboardPage = ({
       const mainImageUrl =
         values.image_url || form.getFieldValue("image_url") || "";
 
+      let rawColorImages =
+        values.color_images || form.getFieldValue("color_images") || {};
+      if (typeof rawColorImages === "string") {
+        try {
+          rawColorImages = JSON.parse(rawColorImages);
+        } catch {
+          rawColorImages = {};
+        }
+      }
+
       const formattedData = {
         ...values,
         image_url: mainImageUrl,
         gallery: galleryList,
+        color_images: rawColorImages,
         stock:
           values.stock !== undefined && values.stock !== null
             ? Number(values.stock)
@@ -1069,6 +1080,11 @@ const AdminDashboardPage = ({
         ? prod.colors.join(", ")
         : prod.colors || "Black, Grey",
       gallery: JSON.stringify(galleryList),
+      color_images: prod.color_images
+        ? typeof prod.color_images === "string"
+          ? prod.color_images
+          : JSON.stringify(prod.color_images)
+        : "{}",
     });
     setProductModalOpen(true);
   };
@@ -3681,7 +3697,7 @@ const AdminDashboardPage = ({
                 <span>1. MEDIA & MULTI-IMAGE GALLERY</span>
               </h4>
 
-              {/* Form items for hidden/synced image_url & gallery values */}
+              {/* Form items for hidden/synced image_url, gallery & color_images values */}
               <Form.Item name="image_url" hidden>
                 <Input />
               </Form.Item>
@@ -3690,18 +3706,60 @@ const AdminDashboardPage = ({
                 <Input />
               </Form.Item>
 
+              <Form.Item name="color_images" hidden>
+                <Input />
+              </Form.Item>
+
               {/* Multi-Image Interactive Visual Gallery Component */}
               <Form.Item
                 noStyle
                 shouldUpdate={(prevValues, currentValues) =>
                   prevValues.gallery !== currentValues.gallery ||
-                  prevValues.image_url !== currentValues.image_url
+                  prevValues.image_url !== currentValues.image_url ||
+                  prevValues.color_images !== currentValues.color_images ||
+                  prevValues.colors !== currentValues.colors
                 }
               >
                 {({ getFieldValue, setFieldsValue }) => {
                   const mainCoverUrl = getFieldValue("image_url") || "";
                   const galleryRaw = getFieldValue("gallery") || "";
                   const galleryUrls = parseGalleryUrls(galleryRaw);
+
+                  const colorsRaw = getFieldValue("colors") || "";
+                  const parsedColors = (
+                    typeof colorsRaw === "string"
+                      ? colorsRaw.split(",")
+                      : Array.isArray(colorsRaw)
+                      ? colorsRaw
+                      : []
+                  )
+                    .map((c) => c.trim())
+                    .filter(Boolean);
+
+                  const rawColorImages = getFieldValue("color_images") || "{}";
+                  let colorImagesMap = {};
+                  try {
+                    colorImagesMap =
+                      typeof rawColorImages === "string"
+                        ? JSON.parse(rawColorImages)
+                        : rawColorImages || {};
+                  } catch {
+                    colorImagesMap = {};
+                  }
+
+                  const getAssignedColor = (url, fallbackIdx = -1) => {
+                    if (!url) return "";
+                    const mapped = Object.keys(colorImagesMap).find(
+                      (c) => colorImagesMap[c] === url,
+                    );
+                    if (mapped) return mapped;
+                    if (fallbackIdx >= 0 && fallbackIdx < parsedColors.length) {
+                      return parsedColors[fallbackIdx];
+                    }
+                    return "";
+                  };
+
+                  const assignedCoverColor = getAssignedColor(mainCoverUrl, 0);
 
                   const updateGalleryInForm = (newUrls) => {
                     const cleaned = Array.from(
@@ -3893,11 +3951,17 @@ const AdminDashboardPage = ({
                             </div>
                           )}
 
-                          {/* Cover Badge */}
-                          <div className="absolute top-2 left-2 z-10">
+                          {/* Cover Badge & Assigned Color Tag */}
+                          <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 flex-wrap">
                             <span className="bg-amber-400 text-black text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded shadow">
                               MAIN COVER
                             </span>
+                            {assignedCoverColor && (
+                              <span className="bg-black/90 text-amber-300 border border-amber-400/50 text-[9px] font-mono font-black uppercase px-1.5 py-0.5 rounded shadow flex items-center gap-1">
+                                <span>🎨</span>
+                                <span>{assignedCoverColor}</span>
+                              </span>
+                            )}
                           </div>
 
                           {/* Hover Overlay with Upload Icon */}
@@ -3972,6 +4036,10 @@ const AdminDashboardPage = ({
                         <div className="grid grid-cols-3 gap-2.5 max-h-[210px] overflow-y-auto pr-1 scrollbar-thin">
                           {galleryUrls.map((url, idx) => {
                             const isReplacingThis = uploadingCardIdx === idx;
+                            const assignedCardColor = getAssignedColor(
+                              url,
+                              idx + 1,
+                            );
                             return (
                               <div
                                 key={idx}
@@ -3996,10 +4064,17 @@ const AdminDashboardPage = ({
                                   />
                                 )}
 
-                                {/* Index Badge */}
-                                <span className="absolute top-1 left-1 bg-black/80 text-[8px] font-mono font-bold text-white px-1.5 py-0.5 rounded z-30">
-                                  #{idx + 1}
-                                </span>
+                                {/* Index Badge & Assigned Color Tag */}
+                                <div className="absolute top-1 left-1 z-30 flex flex-col gap-0.5 items-start pointer-events-none">
+                                  <span className="bg-black/80 text-[8px] font-mono font-bold text-white px-1.5 py-0.5 rounded">
+                                    #{idx + 1}
+                                  </span>
+                                  {assignedCardColor && (
+                                    <span className="bg-amber-400 text-black text-[8px] font-mono font-black uppercase px-1.5 py-0.2 rounded shadow">
+                                      🎨 {assignedCardColor}
+                                    </span>
+                                  )}
+                                </div>
 
                                 {/* Top Right Action Icons (z-30 to stay above hover overlay) */}
                                 <div className="absolute top-1 right-1 flex items-center gap-1 z-30">
@@ -4236,6 +4311,199 @@ const AdminDashboardPage = ({
                   </Form.Item>
                 </Col>
               </Row>
+
+              {/* Interactive Color-to-Image Variant Mapping Section */}
+              <Form.Item
+                noStyle
+                shouldUpdate={(prevValues, currentValues) =>
+                  prevValues.colors !== currentValues.colors ||
+                  prevValues.image_url !== currentValues.image_url ||
+                  prevValues.gallery !== currentValues.gallery ||
+                  prevValues.color_images !== currentValues.color_images
+                }
+              >
+                {({ getFieldValue, setFieldsValue }) => {
+                  const colorsRaw = getFieldValue("colors") || "";
+                  const parsedColors = (
+                    typeof colorsRaw === "string"
+                      ? colorsRaw.split(",")
+                      : Array.isArray(colorsRaw)
+                      ? colorsRaw
+                      : []
+                  )
+                    .map((c) => c.trim())
+                    .filter(Boolean);
+
+                  if (parsedColors.length === 0) return null;
+
+                  const mainCover = getFieldValue("image_url") || "";
+                  const galleryRaw = getFieldValue("gallery") || "";
+                  const galleryUrls = parseGalleryUrls(galleryRaw);
+
+                  const allImagesList = [];
+                  if (mainCover) {
+                    allImagesList.push({
+                      label: "Primary Cover Photo",
+                      url: mainCover,
+                      isCover: true,
+                    });
+                  }
+                  galleryUrls.forEach((u, i) => {
+                    if (u) {
+                      allImagesList.push({
+                        label: `Gallery Angle #${i + 1}`,
+                        url: u,
+                        isCover: false,
+                      });
+                    }
+                  });
+
+                  let colorImagesMap = {};
+                  try {
+                    const rawCI = getFieldValue("color_images") || "{}";
+                    colorImagesMap =
+                      typeof rawCI === "string"
+                        ? JSON.parse(rawCI)
+                        : rawCI || {};
+                  } catch {
+                    colorImagesMap = {};
+                  }
+
+                  const setColorForImage = (colorName, imageUrl) => {
+                    const updated = { ...colorImagesMap };
+                    if (!imageUrl) {
+                      delete updated[colorName];
+                    } else {
+                      updated[colorName] = imageUrl;
+                    }
+                    const jsonStr = JSON.stringify(updated);
+                    form.setFieldsValue({ color_images: jsonStr });
+                    setFieldsValue({ color_images: jsonStr });
+                  };
+
+                  const autoMapInOrder = () => {
+                    const updated = {};
+                    parsedColors.forEach((col, idx) => {
+                      if (allImagesList[idx]) {
+                        updated[col] = allImagesList[idx].url;
+                      }
+                    });
+                    const jsonStr = JSON.stringify(updated);
+                    form.setFieldsValue({ color_images: jsonStr });
+                    setFieldsValue({ color_images: jsonStr });
+                    notification.success({
+                      message: "COLORS AUTO-LINKED",
+                      description: `Mapped ${Object.keys(updated).length} colors to uploaded photos in order!`,
+                      placement: "bottomRight",
+                    });
+                  };
+
+                  const resetColorMapping = () => {
+                    form.setFieldsValue({ color_images: "{}" });
+                    setFieldsValue({ color_images: "{}" });
+                  };
+
+                  return (
+                    <div className="mb-3 bg-neutral-900 text-white p-3 rounded-xl border border-neutral-700/80 space-y-2">
+                      <div className="flex items-center justify-between flex-wrap gap-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] font-black uppercase tracking-wider text-amber-400">
+                            🎨 Color Variant Image Mapping
+                          </span>
+                          <span className="text-[9px] font-mono text-neutral-400">
+                            ({parsedColors.length} colors)
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="primary"
+                            size="small"
+                            onClick={autoMapInOrder}
+                            disabled={allImagesList.length === 0}
+                            className="bg-amber-400 hover:bg-amber-300 text-black font-extrabold text-[10px] rounded px-2 border-none h-6 flex items-center gap-1 shadow-sm"
+                          >
+                            ✨ Auto-Link in Order
+                          </Button>
+                          {Object.keys(colorImagesMap).length > 0 && (
+                            <Button
+                              type="text"
+                              size="small"
+                              onClick={resetColorMapping}
+                              className="text-neutral-400 hover:text-rose-400 text-[10px] h-6 px-1.5"
+                            >
+                              Reset
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[170px] overflow-y-auto pr-1 scrollbar-thin">
+                        {parsedColors.map((col, idx) => {
+                          const currentUrl =
+                            colorImagesMap[col] ||
+                            (idx < allImagesList.length
+                              ? allImagesList[idx].url
+                              : "");
+                          const isExplicit = Boolean(colorImagesMap[col]);
+
+                          return (
+                            <div
+                              key={col}
+                              className="bg-neutral-800/90 border border-neutral-700/80 rounded-lg p-2 flex items-center gap-2"
+                            >
+                              {/* Thumbnail preview */}
+                              <div className="w-10 h-12 rounded bg-neutral-950 border border-neutral-700 shrink-0 overflow-hidden relative">
+                                {currentUrl ? (
+                                  <img
+                                    src={currentUrl}
+                                    alt={col}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-[9px] text-neutral-500 font-mono">
+                                    No Img
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Color name & Select */}
+                              <div className="flex-1 min-w-0 space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[11px] font-bold text-white truncate">
+                                    {col}
+                                  </span>
+                                  {isExplicit ? (
+                                    <span className="text-[8px] font-mono text-emerald-300 bg-emerald-950/80 px-1 py-0.2 rounded border border-emerald-800/50">
+                                      LINKED
+                                    </span>
+                                  ) : (
+                                    <span className="text-[8px] font-mono text-neutral-400 bg-neutral-900/80 px-1 py-0.2 rounded">
+                                      AUTO #{idx + 1}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <Select
+                                  size="small"
+                                  className="w-full text-[10px]"
+                                  value={currentUrl || undefined}
+                                  placeholder="Assign image..."
+                                  onChange={(val) => setColorForImage(col, val)}
+                                  allowClear
+                                  options={allImagesList.map((img, i) => ({
+                                    value: img.url,
+                                    label: `${img.isCover ? "★ Cover Photo" : `Angle #${i}`}`,
+                                  }))}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                }}
+              </Form.Item>
 
               <Form.Item
                 label={

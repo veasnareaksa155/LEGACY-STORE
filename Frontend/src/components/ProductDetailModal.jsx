@@ -142,10 +142,19 @@ const ProductDetailModal = ({
       if (product.sizes && product.sizes.length > 0) {
         setSelectedSize(product.sizes[0]);
       }
-      if (product.colors && product.colors.length > 0) {
-        setSelectedColor(product.colors[0]);
+      const initialColor =
+        product.colors && product.colors.length > 0 ? product.colors[0] : "";
+      if (initialColor) {
+        setSelectedColor(initialColor);
+        const targetImg = getColorImageUrl(
+          initialColor,
+          product?.category?.name,
+          product?.image_url,
+        );
+        setActiveImage(targetImg || product.image_url);
+      } else {
+        setActiveImage(product.image_url);
       }
-      setActiveImage(product.image_url);
       setQuantity(1);
       setShowRatingForm(false);
       setLiveRating(product.rating || null);
@@ -194,63 +203,96 @@ const ProductDetailModal = ({
     product?.reviews_count ||
     (((product?.id || 1) * 23) % 180) + 24;
 
-  // Helper function to map colors to luxury apparel variant photos
+  // Helper function to map colors to uploaded apparel photos
   const getColorImageUrl = (colorName, categoryName, defaultImg) => {
-    if (!colorName) return defaultImg;
-    const col = colorName.toLowerCase().trim();
-    const cat = (categoryName || "").toLowerCase().trim();
+    if (!colorName) return defaultImg || product?.image_url;
+    const colTrimmed = colorName.trim();
+    const colLower = colTrimmed.toLowerCase();
 
-    if (product?.color_images && product.color_images[colorName]) {
-      return product.color_images[colorName];
+    // 1. Explicit color_images mapping saved in product catalog
+    if (product?.color_images && typeof product.color_images === "object") {
+      if (product.color_images[colTrimmed]) {
+        return product.color_images[colTrimmed];
+      }
+      // Case-insensitive key match
+      const matchedKey = Object.keys(product.color_images).find(
+        (k) => k.trim().toLowerCase() === colLower,
+      );
+      if (matchedKey && product.color_images[matchedKey]) {
+        return product.color_images[matchedKey];
+      }
     }
 
-    if (col.includes("white")) {
-      if (cat.includes("t-shirt") || cat.includes("tee")) {
-        return "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?auto=format&fit=crop&w=800&q=80";
-      }
-      if (cat.includes("shirt")) {
-        return "https://images.unsplash.com/photo-1598033129183-c4f50c736f10?auto=format&fit=crop&w=800&q=80";
-      }
-      if (cat.includes("shoe") || cat.includes("footwear")) {
-        return "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&w=800&q=80";
-      }
-      return "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?auto=format&fit=crop&w=800&q=80";
-    }
+    // Safely collect all uploaded images (cover + gallery)
+    const allGalleryUrls = (productAngleGallery || [])
+      .map((item) => item.url)
+      .filter(Boolean);
 
-    if (col.includes("black")) {
-      if (cat.includes("t-shirt") || cat.includes("tee")) {
-        return "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=800&q=80";
-      }
-      if (cat.includes("shirt")) {
-        return "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&w=800&q=80";
-      }
-      if (cat.includes("shoe")) {
-        return "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?auto=format&fit=crop&w=800&q=80";
-      }
-      return "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=800&q=80";
-    }
+    // 2. Check all uploaded images for filename/URL match with color name
+    const urlMatch = allGalleryUrls.find((url) => {
+      const u = url.toLowerCase();
+      return u.includes(colLower);
+    });
+    if (urlMatch) return urlMatch;
 
-    if (col.includes("navy") || col.includes("blue")) {
-      return "https://images.unsplash.com/photo-1617137968427-85924c800a22?auto=format&fit=crop&w=800&q=80";
-    }
-
+    // 3. Positional / Index-based matching between product.colors and uploaded gallery
+    // e.g. if colors = ["Red", "Gray", "Black", "White"]
+    // and productAngleGallery = [Red Cover, Gray Angle 2, Black Angle 3, White Angle 4]
     if (
-      col.includes("charcoal") ||
-      col.includes("gray") ||
-      col.includes("grey")
+      Array.isArray(product?.colors) &&
+      product.colors.length > 0 &&
+      allGalleryUrls.length > 0
     ) {
-      return "https://images.unsplash.com/photo-1620012253295-c15cc3e65df4?auto=format&fit=crop&w=800&q=80";
+      const colorIdx = product.colors.findIndex(
+        (c) => typeof c === "string" && c.trim().toLowerCase() === colLower,
+      );
+      if (colorIdx >= 0 && colorIdx < allGalleryUrls.length) {
+        return allGalleryUrls[colorIdx];
+      }
     }
 
-    if (col.includes("burgundy") || col.includes("red")) {
-      return "https://images.unsplash.com/photo-1603252109303-2751441dd157?auto=format&fit=crop&w=800&q=80";
-    }
+    // 4. Default to product cover image (NEVER fall back to unrelated model photos when product images exist)
+    return defaultImg || product?.image_url;
+  };
 
-    if (col.includes("brown") || col.includes("tan") || col.includes("beige")) {
-      return "https://images.unsplash.com/photo-1533867617858-e7b97e060509?auto=format&fit=crop&w=800&q=80";
+  // Helper to sync selected color when user switches images/angles
+  const syncColorWithImage = (url, idx) => {
+    if (!url) return;
+    if (product?.color_images && typeof product.color_images === "object") {
+      const matched = Object.keys(product.color_images).find(
+        (c) => product.color_images[c] === url,
+      );
+      if (matched) {
+        setSelectedColor(matched);
+        return;
+      }
     }
+    if (
+      Array.isArray(product?.colors) &&
+      idx >= 0 &&
+      idx < product.colors.length
+    ) {
+      setSelectedColor(product.colors[idx]);
+    }
+  };
 
-    return defaultImg;
+  // Helper to get thumbnail badge label (shows matched color or angle name)
+  const getThumbnailLabel = (item, idx) => {
+    if (!item) return "";
+    if (product?.color_images && typeof product.color_images === "object") {
+      const matched = Object.keys(product.color_images).find(
+        (c) => product.color_images[c] === item.url,
+      );
+      if (matched) return matched;
+    }
+    if (
+      Array.isArray(product?.colors) &&
+      idx >= 0 &&
+      idx < product.colors.length
+    ) {
+      return product.colors[idx];
+    }
+    return item.label || `ANGLE ${idx + 1}`;
   };
 
   const handleColorSelect = (col) => {
@@ -260,7 +302,9 @@ const ProductDetailModal = ({
       product?.category?.name,
       product?.image_url,
     );
-    setActiveImage(targetImage);
+    if (targetImage) {
+      setActiveImage(targetImage);
+    }
   };
 
   const handleAdd = () => {
@@ -350,12 +394,20 @@ const ProductDetailModal = ({
     const prevIdx =
       (activeIndex - 1 + productAngleGallery.length) %
       productAngleGallery.length;
-    setActiveImage(productAngleGallery[prevIdx].url);
+    const targetUrl = productAngleGallery[prevIdx]?.url;
+    if (targetUrl) {
+      setActiveImage(targetUrl);
+      syncColorWithImage(targetUrl, prevIdx);
+    }
   };
 
   const handleNextImage = () => {
     const nextIdx = (activeIndex + 1) % productAngleGallery.length;
-    setActiveImage(productAngleGallery[nextIdx].url);
+    const targetUrl = productAngleGallery[nextIdx]?.url;
+    if (targetUrl) {
+      setActiveImage(targetUrl);
+      syncColorWithImage(targetUrl, nextIdx);
+    }
   };
 
   return (
@@ -386,7 +438,10 @@ const ProductDetailModal = ({
             {/* Active View Angle Badge Overlay */}
             <div className="absolute top-3 left-3 flex flex-col gap-1 z-10 pointer-events-none">
               <span className="bg-black/90 backdrop-blur-md text-white text-[9px] sm:text-xs font-mono font-extrabold uppercase px-2.5 py-1 rounded-md tracking-widest shadow-md border border-white/20">
-                {currentAngleItem?.label || "FRONT VIEW"}
+                {getThumbnailLabel(
+                  currentAngleItem,
+                  activeIndex >= 0 ? activeIndex : 0,
+                ) || "FRONT VIEW"}
               </span>
             </div>
 
@@ -419,13 +474,16 @@ const ProductDetailModal = ({
               return (
                 <button
                   key={item.id || idx}
-                  onClick={() => setActiveImage(item.url)}
+                  onClick={() => {
+                    setActiveImage(item.url);
+                    syncColorWithImage(item.url, idx);
+                  }}
                   className={`relative flex-shrink-0 w-14 sm:w-16 h-18 sm:h-20 rounded-lg overflow-hidden border-2 transition-all cursor-pointer group/thumb ${
                     isActive
                       ? "border-black ring-2 ring-black/20 shadow-md scale-[1.02]"
                       : "border-neutral-200 hover:border-neutral-400 opacity-75 hover:opacity-100"
                   }`}
-                  title={`${item.label} Angle View`}
+                  title={`${getThumbnailLabel(item, idx)} View`}
                 >
                   <img
                     src={item.url}
@@ -435,13 +493,13 @@ const ProductDetailModal = ({
                     }`}
                   />
                   <div
-                    className={`absolute bottom-0 inset-x-0 py-0.5 text-[8px] font-mono font-extrabold uppercase text-center tracking-wider transition-colors ${
+                    className={`absolute bottom-0 inset-x-0 py-0.5 text-[8px] font-mono font-extrabold uppercase text-center tracking-wider transition-colors truncate px-1 ${
                       isActive
                         ? "bg-black text-white"
                         : "bg-black/70 text-white group-hover/thumb:bg-black"
                     }`}
                   >
-                    {item.label}
+                    {getThumbnailLabel(item, idx)}
                   </div>
                 </button>
               );
