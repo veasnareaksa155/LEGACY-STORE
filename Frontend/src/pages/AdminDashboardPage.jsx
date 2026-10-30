@@ -54,6 +54,7 @@ import {
   AlertOutlined,
   ThunderboltOutlined,
   UploadOutlined,
+  SearchOutlined,
 } from "@ant-design/icons";
 import {
   fetchProducts,
@@ -301,8 +302,18 @@ const AdminDashboardPage = ({
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Search Filter in Admin Table
+  // Search & Filter States in Admin Products Table
   const [searchTerm, setSearchTerm] = useState("");
+  const [productCategoryFilter, setProductCategoryFilter] = useState("all");
+  const [productStockFilter, setProductStockFilter] = useState("all");
+
+  // Orders Search & Filter States
+  const [orderSearchTerm, setOrderSearchTerm] = useState("");
+  const [orderStatusFilter, setOrderStatusFilter] = useState("all");
+
+  // Users Search & Filter States
+  const [userSearchTerm, setUserSearchTerm] = useState("");
+  const [userRoleFilter, setUserRoleFilter] = useState("all");
 
   // Product Modal State (Create / Edit)
   const [productModalOpen, setProductModalOpen] = useState(false);
@@ -1327,11 +1338,120 @@ const AdminDashboardPage = ({
     (o) => o.status === "completed" || o.status === "delivered",
   ).length;
 
-  const filteredProducts = products.filter(
-    (p) =>
-      p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.category?.name?.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  const filteredProducts = products.filter((p) => {
+    // 1. Text Search Filter across Name, Category, ID, SKU, Price, Description
+    if (searchTerm && searchTerm.trim() !== "") {
+      const q = searchTerm.toLowerCase().trim();
+      const nameMatch = p.name?.toLowerCase().includes(q);
+      const catMatch =
+        p.category?.name?.toLowerCase().includes(q) ||
+        p.category_slug?.toLowerCase().includes(q);
+      const idMatch = p.id?.toString().includes(q) || `#${p.id}`.includes(q);
+      const priceMatch =
+        p.price?.toString().includes(q) || `$${p.price}`.includes(q);
+      const skuMatch = p.sku?.toLowerCase().includes(q);
+      const descMatch = p.description?.toLowerCase().includes(q);
+
+      if (
+        !nameMatch &&
+        !catMatch &&
+        !idMatch &&
+        !priceMatch &&
+        !skuMatch &&
+        !descMatch
+      ) {
+        return false;
+      }
+    }
+
+    // 2. Category Dropdown Filter
+    if (productCategoryFilter !== "all") {
+      const catSlug = (
+        p.category?.slug ||
+        p.category_slug ||
+        p.category?.name ||
+        ""
+      ).toLowerCase();
+      if (catSlug !== productCategoryFilter.toLowerCase()) {
+        return false;
+      }
+    }
+
+    // 3. Stock Status Filter
+    if (productStockFilter !== "all") {
+      const stockNum = Number(p.stock || 0);
+      if (productStockFilter === "in_stock" && stockNum <= 0) return false;
+      if (productStockFilter === "low_stock" && (stockNum <= 0 || stockNum > 10))
+        return false;
+      if (productStockFilter === "out_of_stock" && stockNum > 0) return false;
+      if (productStockFilter === "hot_drop" && !p.is_hot_drop) return false;
+      if (productStockFilter === "new_arrival" && !p.is_new) return false;
+    }
+
+    return true;
+  });
+
+  const filteredOrders = orders.filter((o) => {
+    if (orderSearchTerm && orderSearchTerm.trim() !== "") {
+      const q = orderSearchTerm.toLowerCase().trim();
+      const idMatch =
+        o.id?.toString().includes(q) ||
+        o.order_number?.toLowerCase().includes(q) ||
+        `#${o.id}`.includes(q);
+      const nameMatch = (
+        o.customer_name ||
+        o.shipping_address?.full_name ||
+        o.name ||
+        ""
+      )
+        .toLowerCase()
+        .includes(q);
+      const emailMatch = (o.customer_email || o.email || "")
+        .toLowerCase()
+        .includes(q);
+      const phoneMatch = (o.customer_phone || o.phone || "")
+        .toLowerCase()
+        .includes(q);
+      const cityMatch = (o.shipping_address?.city || o.city || "")
+        .toLowerCase()
+        .includes(q);
+
+      if (!idMatch && !nameMatch && !emailMatch && !phoneMatch && !cityMatch) {
+        return false;
+      }
+    }
+
+    if (orderStatusFilter !== "all") {
+      if (o.status !== orderStatusFilter) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  const filteredUsers = users.filter((u) => {
+    if (userSearchTerm && userSearchTerm.trim() !== "") {
+      const q = userSearchTerm.toLowerCase().trim();
+      const nameMatch = u.name?.toLowerCase().includes(q);
+      const emailMatch = u.email?.toLowerCase().includes(q);
+      const phoneMatch = u.phone?.toLowerCase().includes(q);
+      const roleMatch = u.role?.toLowerCase().includes(q);
+      const idMatch = u.id?.toString().includes(q) || `#${u.id}`.includes(q);
+
+      if (!nameMatch && !emailMatch && !phoneMatch && !roleMatch && !idMatch) {
+        return false;
+      }
+    }
+
+    if (userRoleFilter !== "all") {
+      if (u.role !== userRoleFilter) {
+        return false;
+      }
+    }
+
+    return true;
+  });
 
   // Sales Trend Chart Data
   const monthlySales = [
@@ -2361,37 +2481,112 @@ const AdminDashboardPage = ({
           {/* TAB 2: PRODUCT CATALOG MANAGEMENT */}
           {activeTab === "products" && (
             <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-neutral-200 shadow-xs">
-                <div>
-                  <h2 className="text-xl font-black font-serif uppercase tracking-tight text-black">
-                    PRODUCT CATALOG MANAGER
-                  </h2>
-                  <p className="text-xs text-neutral-500 font-light">
-                    Add, edit, update prices, manage stock levels, and toggle
-                    hot drops live.
-                  </p>
+              <div className="bg-white p-5 sm:p-6 rounded-2xl border border-neutral-200 shadow-xs space-y-4">
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2.5">
+                      <h2 className="text-xl font-black font-serif uppercase tracking-tight text-black">
+                        PRODUCT CATALOG MANAGER
+                      </h2>
+                      <span className="bg-neutral-100 text-neutral-800 border border-neutral-200 text-[10px] font-mono font-extrabold px-2.5 py-0.5 rounded-full">
+                        {filteredProducts.length} of {products.length} Products
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-500 font-light mt-0.5">
+                      Add, edit, update prices, manage stock levels, and toggle hot drops live.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    {/* Category Dropdown Filter */}
+                    <Select
+                      value={productCategoryFilter}
+                      onChange={setProductCategoryFilter}
+                      className="w-36 h-10 font-medium text-xs"
+                      options={[
+                        { value: "all", label: "All Categories" },
+                        { value: "shirt", label: "👔 Shirts" },
+                        { value: "t-shirt", label: "👕 T-Shirts" },
+                        { value: "shoes", label: "👟 Shoes" },
+                      ]}
+                    />
+
+                    {/* Stock Status Dropdown Filter */}
+                    <Select
+                      value={productStockFilter}
+                      onChange={setProductStockFilter}
+                      className="w-36 h-10 font-medium text-xs"
+                      options={[
+                        { value: "all", label: "All Stock" },
+                        { value: "in_stock", label: "✓ In Stock" },
+                        { value: "low_stock", label: "⚠️ Low Stock" },
+                        { value: "out_of_stock", label: "🚨 Out of Stock" },
+                        { value: "hot_drop", label: "🔥 Hot Drops" },
+                        { value: "new_arrival", label: "✨ New Drops" },
+                      ]}
+                    />
+
+                    {/* Luxury Executive Search Input */}
+                    <div className="relative flex-1 sm:w-64 md:w-72 min-w-[200px]">
+                      <Input
+                        placeholder="Search name, ID, price, SKU..."
+                        prefix={<SearchOutlined className="text-neutral-400 text-sm mr-1.5" />}
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        allowClear
+                        className="w-full text-xs font-medium rounded-xl border border-neutral-300 hover:border-black focus:border-black bg-neutral-50/70 focus:bg-white text-black placeholder:text-neutral-400 shadow-2xs h-10 px-3 transition-all"
+                      />
+                    </div>
+
+                    {/* New Product Button */}
+                    <Button
+                      type="primary"
+                      icon={<PlusOutlined className="text-sm" />}
+                      onClick={() => {
+                        setEditingProduct(null);
+                        form.resetFields();
+                        setProductModalOpen(true);
+                      }}
+                      className="bg-black hover:bg-neutral-800 text-white font-extrabold text-xs uppercase tracking-widest h-10 px-5 rounded-xl shadow-md border-none flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+                    >
+                      <span>NEW PRODUCT</span>
+                    </Button>
+                  </div>
                 </div>
 
-                <div className="flex items-center space-x-3 w-full sm:w-auto">
-                  <Input
-                    placeholder="Search products..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="text-xs w-48 rounded-lg border-neutral-300 bg-neutral-50 text-black placeholder-neutral-400"
-                  />
-                  <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    onClick={() => {
-                      setEditingProduct(null);
-                      form.resetFields();
-                      setProductModalOpen(true);
-                    }}
-                    className="bg-black hover:bg-neutral-800 text-white font-black text-xs uppercase tracking-widest h-10 px-5 rounded-lg shadow-md border-none flex items-center justify-center gap-2"
-                  >
-                    + NEW PRODUCT
-                  </Button>
-                </div>
+                {/* Filter Feedback Banner (Shows when any filter is active) */}
+                {(searchTerm || productCategoryFilter !== "all" || productStockFilter !== "all") && (
+                  <div className="flex items-center justify-between bg-neutral-50 border border-neutral-200/80 px-3.5 py-2 rounded-xl text-xs text-neutral-600 font-mono">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-bold text-black uppercase text-[10px]">Active Filters:</span>
+                      {searchTerm && (
+                        <span className="bg-white border border-neutral-200 px-2 py-0.5 rounded text-[11px] text-neutral-800">
+                          Keyword: "{searchTerm}"
+                        </span>
+                      )}
+                      {productCategoryFilter !== "all" && (
+                        <span className="bg-white border border-neutral-200 px-2 py-0.5 rounded text-[11px] text-neutral-800 capitalize">
+                          Category: {productCategoryFilter}
+                        </span>
+                      )}
+                      {productStockFilter !== "all" && (
+                        <span className="bg-white border border-neutral-200 px-2 py-0.5 rounded text-[11px] text-neutral-800 capitalize">
+                          Status: {productStockFilter.replace("_", " ")}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSearchTerm("");
+                        setProductCategoryFilter("all");
+                        setProductStockFilter("all");
+                      }}
+                      className="text-neutral-500 hover:text-black underline cursor-pointer font-bold uppercase text-[10px] ml-2 shrink-0"
+                    >
+                      Reset All
+                    </button>
+                  </div>
+                )}
               </div>
 
               <Table
@@ -2408,18 +2603,82 @@ const AdminDashboardPage = ({
           {/* TAB 3: CUSTOMER ORDERS FULFILLMENT */}
           {activeTab === "orders" && (
             <div className="space-y-6">
-              <div className="bg-white p-6 rounded-2xl border border-neutral-200 shadow-xs">
-                <h2 className="text-xl font-black font-serif uppercase tracking-tight text-black mb-1">
-                  CUSTOMER ORDERS FULFILLMENT
-                </h2>
-                <p className="text-xs text-neutral-500 font-light">
-                  Track client orders, update shipment statuses, and inspect
-                  receipts.
-                </p>
+              <div className="bg-white p-5 sm:p-6 rounded-2xl border border-neutral-200 shadow-xs space-y-4">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2.5">
+                      <h2 className="text-xl font-black font-serif uppercase tracking-tight text-black">
+                        CUSTOMER ORDERS FULFILLMENT
+                      </h2>
+                      <span className="bg-neutral-100 text-neutral-800 border border-neutral-200 text-[10px] font-mono font-extrabold px-2.5 py-0.5 rounded-full">
+                        {filteredOrders.length} of {orders.length} Orders
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-500 font-light mt-0.5">
+                      Track client orders, update shipment statuses, and inspect receipts.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    {/* Order Status Filter */}
+                    <Select
+                      value={orderStatusFilter}
+                      onChange={setOrderStatusFilter}
+                      className="w-36 h-10 font-medium text-xs"
+                      options={[
+                        { value: "all", label: "All Statuses" },
+                        { value: "pending", label: "⏳ Pending" },
+                        { value: "confirmed", label: "✓ Confirmed" },
+                        { value: "shipped", label: "🚚 Shipped" },
+                        { value: "delivered", label: "✨ Delivered" },
+                        { value: "cancelled", label: "✕ Cancelled" },
+                      ]}
+                    />
+
+                    {/* Order Search Input */}
+                    <div className="relative flex-1 sm:w-64 md:w-80 min-w-[200px]">
+                      <Input
+                        placeholder="Search order #, customer, email, phone..."
+                        prefix={<SearchOutlined className="text-neutral-400 text-sm mr-1.5" />}
+                        value={orderSearchTerm}
+                        onChange={(e) => setOrderSearchTerm(e.target.value)}
+                        allowClear
+                        className="w-full text-xs font-medium rounded-xl border border-neutral-300 hover:border-black focus:border-black bg-neutral-50/70 focus:bg-white text-black placeholder:text-neutral-400 shadow-2xs h-10 px-3 transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {(orderSearchTerm || orderStatusFilter !== "all") && (
+                  <div className="flex items-center justify-between bg-neutral-50 border border-neutral-200/80 px-3.5 py-2 rounded-xl text-xs text-neutral-600 font-mono">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-bold text-black uppercase text-[10px]">Active Filters:</span>
+                      {orderSearchTerm && (
+                        <span className="bg-white border border-neutral-200 px-2 py-0.5 rounded text-[11px] text-neutral-800">
+                          Keyword: "{orderSearchTerm}"
+                        </span>
+                      )}
+                      {orderStatusFilter !== "all" && (
+                        <span className="bg-white border border-neutral-200 px-2 py-0.5 rounded text-[11px] text-neutral-800 capitalize">
+                          Status: {orderStatusFilter}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setOrderSearchTerm("");
+                        setOrderStatusFilter("all");
+                      }}
+                      className="text-neutral-500 hover:text-black underline cursor-pointer font-bold uppercase text-[10px] ml-2 shrink-0"
+                    >
+                      Reset All
+                    </button>
+                  </div>
+                )}
               </div>
 
               <Table
-                dataSource={orders}
+                dataSource={filteredOrders}
                 columns={orderColumns}
                 rowKey="id"
                 loading={loading}
@@ -2537,51 +2796,110 @@ const AdminDashboardPage = ({
           {/* TAB 5: USERS & CLIENTS MANAGEMENT */}
           {activeTab === "users" && (
             <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-neutral-200 shadow-xs">
-                <div>
-                  <h2 className="text-xl font-black font-serif uppercase tracking-tight text-black mb-1">
-                    USER, CLIENT & DELIVERY DRIVER MANAGEMENT
-                  </h2>
-                  <p className="text-xs text-neutral-500 font-light">
-                    View all registered store users, manage SuperAdmin roles,
-                    register Delivery Drivers (Courier App), and update VIP
-                    client details.
-                  </p>
+              <div className="bg-white p-5 sm:p-6 rounded-2xl border border-neutral-200 shadow-xs space-y-4">
+                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2.5">
+                      <h2 className="text-xl font-black font-serif uppercase tracking-tight text-black mb-1">
+                        USER, CLIENT & DELIVERY DRIVER MANAGEMENT
+                      </h2>
+                      <span className="bg-neutral-100 text-neutral-800 border border-neutral-200 text-[10px] font-mono font-extrabold px-2.5 py-0.5 rounded-full">
+                        {filteredUsers.length} of {users.length} Users
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-500 font-light">
+                      View all registered store users, manage SuperAdmin roles,
+                      register Delivery Drivers (Courier App), and update VIP
+                      client details.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    {/* User Role Filter */}
+                    <Select
+                      value={userRoleFilter}
+                      onChange={setUserRoleFilter}
+                      className="w-36 h-10 font-medium text-xs"
+                      options={[
+                        { value: "all", label: "All Roles" },
+                        { value: "user", label: "👑 VIP Clients" },
+                        { value: "admin", label: "⚡ SuperAdmin" },
+                        { value: "driver", label: "🚚 Drivers" },
+                      ]}
+                    />
+
+                    {/* User Search Input */}
+                    <div className="relative flex-1 sm:w-64 min-w-[190px]">
+                      <Input
+                        placeholder="Search name, email, phone..."
+                        prefix={<SearchOutlined className="text-neutral-400 text-sm mr-1.5" />}
+                        value={userSearchTerm}
+                        onChange={(e) => setUserSearchTerm(e.target.value)}
+                        allowClear
+                        className="w-full text-xs font-medium rounded-xl border border-neutral-300 hover:border-black focus:border-black bg-neutral-50/70 focus:bg-white text-black placeholder:text-neutral-400 shadow-2xs h-10 px-3 transition-all"
+                      />
+                    </div>
+
+                    <Button
+                      type="default"
+                      icon={<CarOutlined className="text-blue-600" />}
+                      onClick={() => {
+                        setEditingUser(null);
+                        userForm.resetFields();
+                        userForm.setFieldsValue({ role: "driver" });
+                        setUserModalOpen(true);
+                      }}
+                      className="bg-blue-50 hover:bg-blue-100 text-blue-900 border-blue-300 font-extrabold text-xs uppercase tracking-wider h-10 px-4 rounded-xl flex items-center justify-center gap-1.5 shadow-xs shrink-0 cursor-pointer"
+                    >
+                      <span>REGISTER DRIVER</span>
+                    </Button>
+
+                    <Button
+                      type="primary"
+                      icon={<UserAddOutlined />}
+                      onClick={() => {
+                        setEditingUser(null);
+                        userForm.resetFields();
+                        userForm.setFieldsValue({ role: "user" });
+                        setUserModalOpen(true);
+                      }}
+                      className="bg-black hover:bg-neutral-800 text-white font-extrabold text-xs uppercase tracking-widest h-10 px-4 rounded-xl shadow-md border-none flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+                    >
+                      <span>NEW CLIENT</span>
+                    </Button>
+                  </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button
-                    type="default"
-                    icon={<CarOutlined className="text-blue-600" />}
-                    onClick={() => {
-                      setEditingUser(null);
-                      userForm.resetFields();
-                      userForm.setFieldsValue({ role: "driver" });
-                      setUserModalOpen(true);
-                    }}
-                    className="bg-blue-50 hover:bg-blue-100 text-blue-900 border-blue-300 font-black text-xs uppercase tracking-wider h-10 px-4 rounded-lg flex items-center justify-center gap-2 shadow-xs"
-                  >
-                    🚚 + REGISTER DELIVERY DRIVER
-                  </Button>
-
-                  <Button
-                    type="primary"
-                    icon={<UserAddOutlined />}
-                    onClick={() => {
-                      setEditingUser(null);
-                      userForm.resetFields();
-                      userForm.setFieldsValue({ role: "user" });
-                      setUserModalOpen(true);
-                    }}
-                    className="bg-black hover:bg-neutral-800 text-white font-black text-xs uppercase tracking-widest h-10 px-5 rounded-lg shadow-md border-none flex items-center justify-center gap-2"
-                  >
-                    + REGISTER NEW CLIENT
-                  </Button>
-                </div>
+                {(userSearchTerm || userRoleFilter !== "all") && (
+                  <div className="flex items-center justify-between bg-neutral-50 border border-neutral-200/80 px-3.5 py-2 rounded-xl text-xs text-neutral-600 font-mono">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-bold text-black uppercase text-[10px]">Active Filters:</span>
+                      {userSearchTerm && (
+                        <span className="bg-white border border-neutral-200 px-2 py-0.5 rounded text-[11px] text-neutral-800">
+                          Keyword: "{userSearchTerm}"
+                        </span>
+                      )}
+                      {userRoleFilter !== "all" && (
+                        <span className="bg-white border border-neutral-200 px-2 py-0.5 rounded text-[11px] text-neutral-800 capitalize">
+                          Role: {userRoleFilter}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setUserSearchTerm("");
+                        setUserRoleFilter("all");
+                      }}
+                      className="text-neutral-500 hover:text-black underline cursor-pointer font-bold uppercase text-[10px] ml-2 shrink-0"
+                    >
+                      Reset All
+                    </button>
+                  </div>
+                )}
               </div>
 
               <Table
-                dataSource={users}
+                dataSource={filteredUsers}
                 columns={userColumns}
                 rowKey="id"
                 loading={loading}
