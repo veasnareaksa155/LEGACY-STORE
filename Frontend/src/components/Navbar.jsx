@@ -15,7 +15,6 @@ import {
   CrownOutlined,
   LeftOutlined,
   CarOutlined,
-  FireOutlined,
 } from "@ant-design/icons";
 
 const Navbar = ({
@@ -122,15 +121,6 @@ const Navbar = ({
     setNavSearch("");
     onSearchChange("");
     setSearchOpen(false);
-  };
-
-  const handleQuickTagClick = (tagQuery) => {
-    const val = tagQuery === "all" ? "" : tagQuery;
-    setNavSearch(val);
-    onSearchChange(val);
-    if (activePage !== "shop") {
-      onNavigatePage("shop");
-    }
   };
 
   return (
@@ -269,24 +259,60 @@ const Navbar = ({
 
             {/* Right Actions (Desktop) */}
             <div className="flex items-center justify-end space-x-2.5 sm:space-x-3">
-              {/* Desktop Search Toggle Button (Toggles luxury slide-down search bar with ZERO logo collision) */}
-              <button
-                ref={searchToggleBtnRef}
-                onClick={() => setSearchOpen((prev) => !prev)}
-                className={`w-10 h-10 shrink-0 aspect-square rounded-full border transition-all duration-300 flex items-center justify-center shadow-xs cursor-pointer ${
-                  searchOpen
-                    ? "text-white bg-black border-black scale-105"
-                    : "text-neutral-700 hover:text-black bg-neutral-100 hover:bg-neutral-200 border-neutral-200 hover:border-black"
-                }`}
-                aria-label={searchOpen ? "Close Search" : "Search Products"}
-                title={searchOpen ? "Close Search (Esc)" : "Search Products"}
+              {/* Desktop Search Bar (Floating pill with reduced width to never collide with logo) */}
+              <div
+                ref={searchContainerRef}
+                className="relative flex items-center shrink-0"
               >
-                {searchOpen ? (
-                  <CloseOutlined style={{ fontSize: "15px" }} />
-                ) : (
+                {/* Floating Search Bar (Reduced width so it never touches the LEGACY logo) */}
+                <div
+                  className={`absolute right-11 top-1/2 -translate-y-1/2 z-30 transition-all duration-300 ease-out flex items-center ${
+                    searchOpen
+                      ? "w-36 sm:w-40 md:w-44 opacity-100 scale-100 pointer-events-auto"
+                      : "w-0 opacity-0 scale-95 pointer-events-none overflow-hidden"
+                  }`}
+                >
+                  <Input
+                    ref={searchInputRef}
+                    placeholder="Search luxury..."
+                    prefix={
+                      <SearchOutlined className="text-neutral-400 mr-1 text-xs" />
+                    }
+                    suffix={
+                      <button
+                        onClick={handleClearNavbarSearch}
+                        className="text-neutral-400 hover:text-black transition-colors flex items-center justify-center p-0.5 cursor-pointer"
+                        title="Close search"
+                      >
+                        <CloseOutlined
+                          style={{ fontSize: "11px", color: "#666" }}
+                        />
+                      </button>
+                    }
+                    value={navSearch}
+                    onChange={handleSearchInputChange}
+                    onPressEnter={() => {
+                      if (activePage !== "shop") onNavigatePage("shop");
+                    }}
+                    className="w-full text-xs !rounded-full border-neutral-300 py-1.5 pl-3 pr-2 shadow-md bg-white hover:border-black focus:border-black transition-all h-9"
+                    autoFocus={searchOpen}
+                  />
+                </div>
+
+                <button
+                  ref={searchToggleBtnRef}
+                  onClick={() => setSearchOpen((prev) => !prev)}
+                  className={`w-10 h-10 shrink-0 aspect-square rounded-full border transition-all duration-300 flex items-center justify-center shadow-xs cursor-pointer ${
+                    searchOpen
+                      ? "text-black bg-neutral-200 border-black"
+                      : "text-neutral-700 hover:text-black bg-neutral-100 hover:bg-neutral-200 border-neutral-200 hover:border-black"
+                  }`}
+                  aria-label="Search items"
+                  title="Search items"
+                >
                   <SearchOutlined style={{ fontSize: "17px" }} />
-                )}
-              </button>
+                </button>
+              </div>
 
               {/* Account Button (Desktop) */}
               <button
@@ -389,95 +415,25 @@ const Navbar = ({
           </div>
         </div>
 
-        {/* ========================================================= */}
-        {/* LUXURY EXPANDABLE SEARCH PANEL (ZERO LOGO OVERLAP)        */}
-        {/* ========================================================= */}
+        {/* Mobile Search Overlay Bar */}
         {searchOpen && (
-          <div
-            ref={searchContainerRef}
-            className="border-t border-neutral-200/90 bg-white/98 backdrop-blur-md shadow-lg transition-all duration-300 ease-out px-4 sm:px-6 lg:px-8 py-3.5 sm:py-4"
-          >
-            <div className="max-w-4xl mx-auto">
-              {/* Search Input Row */}
-              <div className="flex items-center gap-2.5 sm:gap-3">
-                <div className="relative flex-1">
-                  <Input
-                    ref={searchInputRef}
-                    placeholder="Search luxury products, shirts, shoes, collections..."
-                    prefix={
-                      <SearchOutlined className="text-neutral-500 text-base sm:text-lg mr-2" />
-                    }
-                    suffix={
-                      navSearch ? (
-                        <button
-                          onClick={() => {
-                            setNavSearch("");
-                            onSearchChange("");
-                            searchInputRef.current?.focus();
-                          }}
-                          className="text-neutral-400 hover:text-black transition-colors p-1 cursor-pointer flex items-center justify-center rounded-full hover:bg-neutral-100"
-                          title="Clear search"
-                        >
-                          <CloseOutlined style={{ fontSize: "13px" }} />
-                        </button>
-                      ) : null
-                    }
-                    value={navSearch}
-                    onChange={handleSearchInputChange}
-                    onPressEnter={() => {
-                      if (activePage !== "shop") onNavigatePage("shop");
-                    }}
-                    className="w-full text-base sm:text-sm font-medium rounded-full py-2 sm:py-2.5 px-4 sm:px-5 border-neutral-300 hover:border-black focus:border-black shadow-inner bg-neutral-50/70 focus:bg-white transition-all h-11 sm:h-12"
-                  />
-                </div>
-
-                {/* ESC / Close Button */}
+          <div className="md:hidden bg-neutral-50 px-4 py-2.5 border-t border-neutral-200 shadow-inner flex items-center gap-2">
+            <Input
+              placeholder="Search luxury products..."
+              prefix={<SearchOutlined className="text-neutral-400 mr-1" />}
+              suffix={
                 <button
-                  onClick={() => setSearchOpen(false)}
-                  className="h-10 sm:h-11 px-3.5 sm:px-4 rounded-full bg-neutral-100 hover:bg-black hover:text-white text-neutral-700 text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shrink-0 cursor-pointer border border-neutral-200"
-                  title="Close Search (Esc)"
+                  onClick={handleClearNavbarSearch}
+                  className="text-neutral-400 hover:text-black p-1 cursor-pointer"
                 >
                   <CloseOutlined style={{ fontSize: "12px" }} />
-                  <span className="hidden sm:inline">ESC</span>
                 </button>
-              </div>
-
-              {/* Quick Category Discovery Pills */}
-              <div className="flex items-center flex-wrap gap-2 mt-2.5 sm:mt-3 pt-2 sm:pt-2.5 border-t border-neutral-100 text-xs">
-                <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-neutral-400 mr-1 flex items-center gap-1">
-                  <FireOutlined className="text-amber-500" />
-                  QUICK BROWSE:
-                </span>
-                <button
-                  onClick={() => handleQuickTagClick("all")}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer border ${
-                    navSearch === "" && activePage === "shop"
-                      ? "bg-black text-white border-black"
-                      : "bg-neutral-100 hover:bg-black hover:text-white text-neutral-700 border-neutral-200"
-                  }`}
-                >
-                  All Products
-                </button>
-                <button
-                  onClick={() => handleQuickTagClick("shirt")}
-                  className="px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer bg-neutral-100 hover:bg-black hover:text-white text-neutral-700 border border-neutral-200"
-                >
-                  👔 Shirts
-                </button>
-                <button
-                  onClick={() => handleQuickTagClick("t-shirt")}
-                  className="px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer bg-neutral-100 hover:bg-black hover:text-white text-neutral-700 border border-neutral-200"
-                >
-                  👕 T-Shirts
-                </button>
-                <button
-                  onClick={() => handleQuickTagClick("shoes")}
-                  className="px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer bg-neutral-100 hover:bg-black hover:text-white text-neutral-700 border border-neutral-200"
-                >
-                  👟 Shoes
-                </button>
-              </div>
-            </div>
+              }
+              value={navSearch}
+              onChange={handleSearchInputChange}
+              className="w-full text-xs rounded-full py-1.5 border-neutral-300 focus:border-black"
+              autoFocus
+            />
           </div>
         )}
       </header>
