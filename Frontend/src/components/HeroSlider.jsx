@@ -1,23 +1,28 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ArrowRightOutlined } from "@ant-design/icons";
-
-const VERTICAL_IMAGES = [
-  "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&w=800&q=80",
-];
+import { getSiteContent } from "../services/siteContent";
 
 const HeroSlider = ({ onExploreCategory }) => {
   const canvasRef = useRef(null);
   const mouseRef = useRef({ x: -1000, y: -1000, radius: 140 });
 
+  const [verticalImages, setVerticalImages] = useState(() => {
+    return getSiteContent().heroMarqueeImages;
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setVerticalImages(getSiteContent().heroMarqueeImages);
+    };
+    window.addEventListener("legacy_site_content_updated", handleUpdate);
+    return () =>
+      window.removeEventListener("legacy_site_content_updated", handleUpdate);
+  }, []);
+
   const marqueeVerticalImages = [
-    ...VERTICAL_IMAGES,
-    ...VERTICAL_IMAGES,
-    ...VERTICAL_IMAGES,
+    ...verticalImages,
+    ...verticalImages,
+    ...verticalImages,
   ];
 
   // Particle Engine matching CARTER LED dot matrix style exactly

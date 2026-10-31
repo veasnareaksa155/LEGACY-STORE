@@ -55,7 +55,19 @@ import {
   ThunderboltOutlined,
   UploadOutlined,
   SearchOutlined,
+  PictureOutlined,
+  QuestionCircleOutlined,
+  CommentOutlined,
+  SaveOutlined,
+  ReloadOutlined,
+  CloudUploadOutlined,
+  StarFilled,
 } from "@ant-design/icons";
+import {
+  getSiteContent,
+  saveSiteContent,
+  resetSiteContent,
+} from "../services/siteContent";
 import {
   fetchProducts,
   fetchOrders,
@@ -445,6 +457,348 @@ const AdminDashboardPage = ({
 
   // Order Details Receipt Modal
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
+
+  // Homepage Content Management State
+  const [siteContentData, setSiteContentData] = useState(() => getSiteContent());
+  const [siteContentSubTab, setSiteContentSubTab] = useState("community"); // 'community' | 'hero' | 'faqs' | 'testimonials'
+  const [uploadingSiteAsset, setUploadingSiteAsset] = useState(false);
+  const [siteAssetTarget, setSiteAssetTarget] = useState(null);
+  const siteAssetFileInputRef = useRef(null);
+
+  // Forms / Modals for Homepage Content
+  const [faqModalOpen, setFaqModalOpen] = useState(false);
+  const [editingFaqIndex, setEditingFaqIndex] = useState(-1);
+  const [faqForm] = Form.useForm();
+
+  const [testimonialModalOpen, setTestimonialModalOpen] = useState(false);
+  const [editingTestimonialIndex, setEditingTestimonialIndex] = useState(-1);
+  const [testimonialForm] = Form.useForm();
+
+  const [newCommunityInputUrl, setNewCommunityInputUrl] = useState("");
+  const [newHeroInputUrl, setNewHeroInputUrl] = useState("");
+
+  useEffect(() => {
+    const handleSync = () => {
+      setSiteContentData(getSiteContent());
+    };
+    window.addEventListener("legacy_site_content_updated", handleSync);
+    return () => window.removeEventListener("legacy_site_content_updated", handleSync);
+  }, []);
+
+  const handleSiteAssetFileSelected = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !siteAssetTarget) return;
+
+    setUploadingSiteAsset(true);
+    try {
+      const result = await uploadToCloudinary(file, cloudinaryConfig);
+      if (result.success && result.url) {
+        const { section, index } = siteAssetTarget;
+        if (section === "faq_modal") {
+          faqForm.setFieldsValue({ image: result.url });
+        } else if (section === "testimonial_modal") {
+          testimonialForm.setFieldsValue({ avatar: result.url });
+        } else {
+          setSiteContentData((prev) => {
+            const updated = JSON.parse(JSON.stringify(prev));
+            if (section === "community") {
+              if (index !== undefined && index >= 0) {
+                updated.communityGalleryImages[index] = result.url;
+              } else {
+                updated.communityGalleryImages.push(result.url);
+              }
+            } else if (section === "hero") {
+              if (index !== undefined && index >= 0) {
+                updated.heroMarqueeImages[index] = result.url;
+              } else {
+                updated.heroMarqueeImages.push(result.url);
+              }
+            } else if (section === "faqs") {
+              if (index !== undefined && index >= 0 && updated.faqs[index]) {
+                updated.faqs[index].image = result.url;
+              }
+            } else if (section === "testimonials") {
+              if (index !== undefined && index >= 0 && updated.testimonials[index]) {
+                updated.testimonials[index].avatar = result.url;
+              }
+            }
+            saveSiteContent(updated);
+            return updated;
+          });
+        }
+
+        notification.success({
+          message: result.isCloudinary ? "CLOUDINARY UPLOAD SUCCESS" : "ASSET UPDATED",
+          description: result.isCloudinary
+            ? "New asset uploaded to Cloudinary CDN and saved live!"
+            : "Asset preview updated!",
+          placement: "bottomRight",
+        });
+      } else {
+        notification.error({
+          message: "UPLOAD FAILED",
+          description: result.error || "Failed to upload image.",
+          placement: "bottomRight",
+        });
+      }
+    } catch (err) {
+      notification.error({
+        message: "UPLOAD ERROR",
+        description: err?.message || "Failed to process photo upload.",
+        placement: "bottomRight",
+      });
+    } finally {
+      setUploadingSiteAsset(false);
+      setSiteAssetTarget(null);
+      if (siteAssetFileInputRef.current) siteAssetFileInputRef.current.value = "";
+    }
+  };
+
+  const triggerSiteAssetUpload = (section, index = undefined) => {
+    setSiteAssetTarget({ section, index });
+    setTimeout(() => {
+      siteAssetFileInputRef.current?.click();
+    }, 50);
+  };
+
+  const handleSaveAllSiteContent = (dataOverride) => {
+    const toSave = dataOverride || siteContentData;
+    const ok = saveSiteContent(toSave);
+    if (ok) {
+      notification.success({
+        message: "HOMEPAGE CONTENT SAVED",
+        description: "All changes are published live and visible on the storefront!",
+        placement: "bottomRight",
+      });
+    }
+  };
+
+  const handleResetSiteContentDefaults = () => {
+    const defaults = resetSiteContent();
+    setSiteContentData(defaults);
+    notification.info({
+      message: "ORIGINAL DEFAULTS RESTORED",
+      description: "Default showcase images, carousel, FAQs, and testimonials restored.",
+      placement: "bottomRight",
+    });
+  };
+
+  // Community Handlers
+  const handleAddCommunityImage = (url) => {
+    const cleanUrl = (url || newCommunityInputUrl).trim();
+    if (!cleanUrl) {
+      notification.warning({ message: "Please provide a valid image URL" });
+      return;
+    }
+    const updated = {
+      ...siteContentData,
+      communityGalleryImages: [...siteContentData.communityGalleryImages, cleanUrl],
+    };
+    setSiteContentData(updated);
+    saveSiteContent(updated);
+    setNewCommunityInputUrl("");
+    notification.success({
+      message: "COMMUNITY PHOTO ADDED",
+      description: "Appended to 3D cylinder gallery!",
+      placement: "bottomRight",
+    });
+  };
+
+  const handleRemoveCommunityImage = (index) => {
+    const nextList = siteContentData.communityGalleryImages.filter((_, idx) => idx !== index);
+    const updated = { ...siteContentData, communityGalleryImages: nextList };
+    setSiteContentData(updated);
+    saveSiteContent(updated);
+  };
+
+  const handleUpdateCommunityImageUrl = (index, newUrl) => {
+    if (!newUrl) return;
+    const nextList = [...siteContentData.communityGalleryImages];
+    nextList[index] = newUrl.trim();
+    const updated = { ...siteContentData, communityGalleryImages: nextList };
+    setSiteContentData(updated);
+    saveSiteContent(updated);
+  };
+
+  // Hero Marquee Handlers
+  const handleAddHeroImage = (url) => {
+    const cleanUrl = (url || newHeroInputUrl).trim();
+    if (!cleanUrl) {
+      notification.warning({ message: "Please provide a valid image URL" });
+      return;
+    }
+    const updated = {
+      ...siteContentData,
+      heroMarqueeImages: [...siteContentData.heroMarqueeImages, cleanUrl],
+    };
+    setSiteContentData(updated);
+    saveSiteContent(updated);
+    setNewHeroInputUrl("");
+    notification.success({
+      message: "HERO MARQUEE PHOTO ADDED",
+      description: "Appended to hero scrolling marquee!",
+      placement: "bottomRight",
+    });
+  };
+
+  const handleRemoveHeroImage = (index) => {
+    const nextList = siteContentData.heroMarqueeImages.filter((_, idx) => idx !== index);
+    const updated = { ...siteContentData, heroMarqueeImages: nextList };
+    setSiteContentData(updated);
+    saveSiteContent(updated);
+  };
+
+  const handleUpdateHeroImageUrl = (index, newUrl) => {
+    if (!newUrl) return;
+    const nextList = [...siteContentData.heroMarqueeImages];
+    nextList[index] = newUrl.trim();
+    const updated = { ...siteContentData, heroMarqueeImages: nextList };
+    setSiteContentData(updated);
+    saveSiteContent(updated);
+  };
+
+  // FAQ Handlers
+  const openFaqModal = (faq = null, index = -1) => {
+    setEditingFaqIndex(index);
+    if (faq) {
+      faqForm.setFieldsValue({
+        question: faq.question,
+        answer: faq.answer,
+        badges: Array.isArray(faq.badges) ? faq.badges.join(", ") : "",
+        image: faq.image || "",
+      });
+    } else {
+      faqForm.resetFields();
+      faqForm.setFieldsValue({
+        question: "",
+        answer: "",
+        badges: "EXPRESS DELIVERY, 24/7 SUPPORT",
+        image: "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=400&q=80",
+      });
+    }
+    setFaqModalOpen(true);
+  };
+
+  const handleSaveFaqSubmit = (values) => {
+    const badgeArray = values.badges
+      ? values.badges.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean)
+      : [];
+    const itemData = {
+      id: editingFaqIndex >= 0 ? siteContentData.faqs[editingFaqIndex].id : Date.now().toString(),
+      question: values.question.toUpperCase(),
+      answer: values.answer,
+      badges: badgeArray,
+      image: values.image,
+    };
+
+    const nextFaqs = [...siteContentData.faqs];
+    if (editingFaqIndex >= 0) {
+      nextFaqs[editingFaqIndex] = itemData;
+    } else {
+      nextFaqs.push(itemData);
+    }
+
+    const updated = { ...siteContentData, faqs: nextFaqs };
+    setSiteContentData(updated);
+    saveSiteContent(updated);
+    setFaqModalOpen(false);
+    notification.success({
+      message: editingFaqIndex >= 0 ? "FAQ UPDATED" : "NEW FAQ ADDED",
+      description: "Published live to hover accordion!",
+      placement: "bottomRight",
+    });
+  };
+
+  const handleRemoveFaq = (index) => {
+    const nextFaqs = siteContentData.faqs.filter((_, idx) => idx !== index);
+    const updated = { ...siteContentData, faqs: nextFaqs };
+    setSiteContentData(updated);
+    saveSiteContent(updated);
+  };
+
+  // Testimonial Handlers
+  const openTestimonialModal = (item = null, index = -1) => {
+    setEditingTestimonialIndex(index);
+    if (item) {
+      testimonialForm.setFieldsValue({
+        name: item.name,
+        role: item.role,
+        rating: item.rating || 5,
+        comment: item.comment,
+        avatar: item.avatar,
+        stat1_value: item.stats?.[0]?.value || "+42%",
+        stat1_label: item.stats?.[0]?.label || "Lead Generation",
+        stat2_value: item.stats?.[1]?.value || "+63%",
+        stat2_label: item.stats?.[1]?.label || "User Engagement",
+      });
+    } else {
+      testimonialForm.resetFields();
+      testimonialForm.setFieldsValue({
+        name: "",
+        role: "VIP Patron / Founder",
+        rating: 5,
+        comment: "",
+        avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80",
+        stat1_value: "+45%",
+        stat1_label: "Brand Impact",
+        stat2_value: "+70%",
+        stat2_label: "Client Loyalty",
+      });
+    }
+    setTestimonialModalOpen(true);
+  };
+
+  const handleSaveTestimonialSubmit = (values) => {
+    const itemData = {
+      id: editingTestimonialIndex >= 0 ? siteContentData.testimonials[editingTestimonialIndex].id : Date.now(),
+      name: values.name,
+      role: values.role,
+      rating: Number(values.rating) || 5,
+      comment: values.comment,
+      avatar: values.avatar,
+      stats: [
+        { value: values.stat1_value || "+42%", label: values.stat1_label || "Growth" },
+        { value: values.stat2_value || "+63%", label: values.stat2_label || "Retention" },
+      ],
+    };
+
+    const nextList = [...siteContentData.testimonials];
+    if (editingTestimonialIndex >= 0) {
+      nextList[editingTestimonialIndex] = itemData;
+    } else {
+      nextList.push(itemData);
+    }
+
+    const updated = { ...siteContentData, testimonials: nextList };
+    setSiteContentData(updated);
+    saveSiteContent(updated);
+    setTestimonialModalOpen(false);
+    notification.success({
+      message: editingTestimonialIndex >= 0 ? "TESTIMONIAL UPDATED" : "NEW TESTIMONIAL ADDED",
+      description: "Published live to impact cards!",
+      placement: "bottomRight",
+    });
+  };
+
+  const handleRemoveTestimonial = (index) => {
+    const nextList = siteContentData.testimonials.filter((_, idx) => idx !== index);
+    const updated = { ...siteContentData, testimonials: nextList };
+    setSiteContentData(updated);
+    saveSiteContent(updated);
+  };
+
+  // Summary Card Handler
+  const handleUpdateSummaryCard = (field, val) => {
+    const updated = {
+      ...siteContentData,
+      testimonialSummary: {
+        ...siteContentData.testimonialSummary,
+        [field]: val,
+      },
+    };
+    setSiteContentData(updated);
+    saveSiteContent(updated);
+  };
 
   // Notifications Center State
   const [notifications, setNotifications] = useState([
@@ -2147,6 +2501,29 @@ const AdminDashboardPage = ({
               <SettingOutlined style={{ fontSize: "17px" }} />
               <span>SETTINGS</span>
             </button>
+
+            <button
+              onClick={() => setActiveTab("homepage")}
+              className={`w-full text-left px-5 py-3.5 rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center justify-between transition-all duration-200 cursor-pointer ${
+                activeTab === "homepage"
+                  ? "bg-white text-black shadow-lg"
+                  : "text-neutral-400 hover:bg-neutral-900 hover:text-white"
+              }`}
+            >
+              <div className="flex items-center space-x-3.5">
+                <PictureOutlined style={{ fontSize: "17px" }} />
+                <span>HOMEPAGE CONTENT</span>
+              </div>
+              <span
+                className={`text-[9px] font-black px-1.5 py-0.5 rounded tracking-widest ${
+                  activeTab === "homepage"
+                    ? "bg-black text-amber-400"
+                    : "bg-amber-400/20 text-amber-400 border border-amber-400/30"
+                }`}
+              >
+                LIVE
+              </span>
+            </button>
           </nav>
         </div>
 
@@ -3282,6 +3659,766 @@ const AdminDashboardPage = ({
                   </Button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* TAB 10: HOMEPAGE CONTENT & ASSET MANAGER */}
+          {activeTab === "homepage" && (
+            <div className="space-y-6">
+              {/* Header Banner */}
+              <div className="bg-gradient-to-r from-neutral-950 via-black to-neutral-900 text-white p-6 sm:p-8 rounded-3xl border border-neutral-800 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20"></div>
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-amber-400 text-black">
+                        LIVE STOREFRONT CMS
+                      </span>
+                      <span className="text-xs text-neutral-400 font-mono">
+                        Real-time synchronized across all storefront pages
+                      </span>
+                    </div>
+                    <h1 className="text-2xl sm:text-3xl font-serif font-black tracking-tight uppercase text-white m-0">
+                      HOMEPAGE CONTENT & VISUAL ASSETS
+                    </h1>
+                    <p className="text-xs sm:text-sm text-neutral-400 mt-1 max-w-2xl font-light">
+                      Manage rotating 3D cylinder community cards, hero vertical marquee banners, hover FAQ accordions, and client impact testimonials with instant Cloudinary CDN upload.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Popconfirm
+                      title="RESTORE FACTORY CONTENT?"
+                      description="Reset all showcase photos, FAQs, and testimonials to defaults?"
+                      onConfirm={handleResetSiteContentDefaults}
+                      okText="Yes, Restore"
+                      cancelText="Cancel"
+                      okButtonProps={{ className: "bg-red-600" }}
+                    >
+                      <button className="px-4 py-2.5 rounded-xl border border-neutral-700 bg-neutral-900/90 hover:bg-neutral-800 text-neutral-300 hover:text-white text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shadow-sm">
+                        <ReloadOutlined />
+                        <span>Restore Defaults</span>
+                      </button>
+                    </Popconfirm>
+                    <button
+                      onClick={() => handleSaveAllSiteContent()}
+                      className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 shadow-lg shadow-amber-400/20 cursor-pointer"
+                    >
+                      <SaveOutlined />
+                      <span>Save & Publish Live</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sub-Tabs Nav */}
+                <div className="mt-8 pt-6 border-t border-neutral-800/80 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setSiteContentSubTab("community")}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                      siteContentSubTab === "community"
+                        ? "bg-white text-black shadow-lg"
+                        : "bg-neutral-900/70 text-neutral-400 hover:text-white hover:bg-neutral-800"
+                    }`}
+                  >
+                    <span>📸 3D Style Community Carousel</span>
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
+                        siteContentSubTab === "community"
+                          ? "bg-black text-white"
+                          : "bg-neutral-800 text-neutral-300"
+                      }`}
+                    >
+                      {siteContentData.communityGalleryImages?.length || 0}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setSiteContentSubTab("hero")}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                      siteContentSubTab === "hero"
+                        ? "bg-white text-black shadow-lg"
+                        : "bg-neutral-900/70 text-neutral-400 hover:text-white hover:bg-neutral-800"
+                    }`}
+                  >
+                    <span>🖼️ Hero Vertical Marquee</span>
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
+                        siteContentSubTab === "hero"
+                          ? "bg-black text-white"
+                          : "bg-neutral-800 text-neutral-300"
+                      }`}
+                    >
+                      {siteContentData.heroMarqueeImages?.length || 0}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setSiteContentSubTab("faqs")}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                      siteContentSubTab === "faqs"
+                        ? "bg-white text-black shadow-lg"
+                        : "bg-neutral-900/70 text-neutral-400 hover:text-white hover:bg-neutral-800"
+                    }`}
+                  >
+                    <span>❓ Hover FAQ Accordion</span>
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
+                        siteContentSubTab === "faqs"
+                          ? "bg-black text-white"
+                          : "bg-neutral-800 text-neutral-300"
+                      }`}
+                    >
+                      {siteContentData.faqs?.length || 0}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setSiteContentSubTab("testimonials")}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                      siteContentSubTab === "testimonials"
+                        ? "bg-white text-black shadow-lg"
+                        : "bg-neutral-900/70 text-neutral-400 hover:text-white hover:bg-neutral-800"
+                    }`}
+                  >
+                    <span>⭐ Client Testimonials & Impact</span>
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
+                        siteContentSubTab === "testimonials"
+                          ? "bg-black text-white"
+                          : "bg-neutral-800 text-neutral-300"
+                      }`}
+                    >
+                      {siteContentData.testimonials?.length || 0}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Sub-Tab 1: 3D Community Gallery */}
+              {siteContentSubTab === "community" && (
+                <div className="space-y-6">
+                  {/* Info & Add Toolbar */}
+                  <div className="bg-white border border-neutral-200/80 rounded-2xl p-6 shadow-sm">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                      <div>
+                        <h2 className="text-base font-serif font-black uppercase tracking-tight text-neutral-900 flex items-center gap-2">
+                          <span>3D STYLE COMMUNITY GALLERY SHOWCASE</span>
+                          <span className="text-xs font-mono font-bold text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                            {siteContentData.communityGalleryImages?.length || 0} CARDS REVOLVING
+                          </span>
+                        </h2>
+                        <p className="text-xs text-neutral-500 mt-1 max-w-2xl">
+                          These images form the 3D rotating cylinder under <strong>@LEGACY: JOIN OUR STYLE COMMUNITY</strong>. Visitors can swipe or drag left and right to inspect your editorial looks in 3D.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3">
+                        <Button
+                          type="primary"
+                          icon={<CloudUploadOutlined />}
+                          loading={uploadingSiteAsset && siteAssetTarget?.section === "community" && siteAssetTarget?.index === undefined}
+                          onClick={() => triggerSiteAssetUpload("community")}
+                          className="bg-black hover:bg-neutral-800 text-white font-extrabold text-xs uppercase px-4 h-10 rounded-xl border-none shadow-sm flex items-center"
+                        >
+                          Upload New Photo (Cloudinary)
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Quick Add By URL Bar */}
+                    <div className="mt-5 pt-4 border-t border-neutral-100 flex flex-col sm:flex-row gap-2">
+                      <Input
+                        placeholder="Paste image URL directly (e.g. https://images.unsplash.com/...)"
+                        value={newCommunityInputUrl}
+                        onChange={(e) => setNewCommunityInputUrl(e.target.value)}
+                        onPressEnter={() => handleAddCommunityImage()}
+                        className="text-xs py-2 rounded-xl"
+                        prefix={<PictureOutlined className="text-neutral-400" />}
+                      />
+                      <Button
+                        onClick={() => handleAddCommunityImage()}
+                        className="bg-neutral-900 hover:bg-black text-white font-bold text-xs uppercase px-5 h-9 rounded-xl shrink-0"
+                      >
+                        Add URL
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Photo Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-4">
+                    {siteContentData.communityGalleryImages?.map((url, idx) => (
+                      <div
+                        key={idx}
+                        className="group relative bg-white rounded-2xl border border-neutral-200 overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col"
+                      >
+                        <div className="relative aspect-[4/5] bg-neutral-900 overflow-hidden">
+                          <img
+                            src={url}
+                            alt={`Community #${idx + 1}`}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            onError={(e) => {
+                              e.target.src =
+                                "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=400&q=80";
+                            }}
+                          />
+                          <div className="absolute top-2 left-2 z-10">
+                            <span className="bg-black/80 backdrop-blur-xs text-amber-400 text-[10px] font-mono font-black px-2 py-0.5 rounded shadow">
+                              #{idx + 1}
+                            </span>
+                          </div>
+
+                          {/* Hover Overlay with Replace / Upload */}
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2 z-20">
+                            <button
+                              onClick={() => triggerSiteAssetUpload("community", idx)}
+                              className="w-full bg-amber-400 hover:bg-amber-300 text-black text-[10px] font-black uppercase py-1.5 px-2 rounded-lg flex items-center justify-center gap-1 shadow cursor-pointer transition-colors"
+                              title="Upload replace from computer to Cloudinary CDN"
+                            >
+                              <UploadOutlined />
+                              <span>Replace</span>
+                            </button>
+                            <Popconfirm
+                              title="REMOVE CYLINDER PHOTO?"
+                              description="Remove this photo from 3D revolving carousel?"
+                              onConfirm={() => handleRemoveCommunityImage(idx)}
+                              okText="Delete"
+                              cancelText="Cancel"
+                              okButtonProps={{ className: "bg-red-600" }}
+                            >
+                              <button
+                                className="w-full bg-red-600/90 hover:bg-red-600 text-white text-[10px] font-bold uppercase py-1.5 px-2 rounded-lg flex items-center justify-center gap-1 shadow cursor-pointer transition-colors"
+                              >
+                                <DeleteOutlined />
+                                <span>Delete</span>
+                              </button>
+                            </Popconfirm>
+                          </div>
+                        </div>
+
+                        {/* Card Footer URL Quick Editor */}
+                        <div className="p-2 bg-neutral-50 border-t border-neutral-100 flex items-center justify-between text-[10px] font-mono text-neutral-500">
+                          <span className="truncate max-w-[110px]" title={url}>
+                            {url.replace(/^https?:\/\//, "")}
+                          </span>
+                          <Popover
+                            trigger="click"
+                            content={
+                              <div className="w-64 space-y-2 p-1">
+                                <span className="text-xs font-bold text-neutral-800 uppercase">
+                                  Edit Photo URL #{idx + 1}
+                                </span>
+                                <Input
+                                  defaultValue={url}
+                                  size="small"
+                                  className="text-xs font-mono"
+                                  onPressEnter={(e) => {
+                                    handleUpdateCommunityImageUrl(idx, e.target.value);
+                                  }}
+                                />
+                                <span className="text-[10px] text-neutral-400 block">
+                                  Press Enter to apply live
+                                </span>
+                              </div>
+                            }
+                          >
+                            <button className="text-neutral-400 hover:text-black cursor-pointer p-0.5">
+                              <EditOutlined />
+                            </button>
+                          </Popover>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Sub-Tab 2: Hero Vertical Marquee */}
+              {siteContentSubTab === "hero" && (
+                <div className="space-y-6">
+                  {/* Info & Add Toolbar */}
+                  <div className="bg-white border border-neutral-200/80 rounded-2xl p-6 shadow-sm">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                      <div>
+                        <h2 className="text-base font-serif font-black uppercase tracking-tight text-neutral-900 flex items-center gap-2">
+                          <span>HERO VERTICAL MARQUEE SHOWCASE</span>
+                          <span className="text-xs font-mono font-bold text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                            {siteContentData.heroMarqueeImages?.length || 0} PHOTOS SCROLLING
+                          </span>
+                        </h2>
+                        <p className="text-xs text-neutral-500 mt-1 max-w-2xl">
+                          These images continuously scroll upward in the luxury hero banner next to <strong>Heavyweight Tees</strong>, <strong>Handmade Footwear</strong>, and <strong>VIP Concierge • 2026</strong>.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3">
+                        <Button
+                          type="primary"
+                          icon={<CloudUploadOutlined />}
+                          loading={uploadingSiteAsset && siteAssetTarget?.section === "hero" && siteAssetTarget?.index === undefined}
+                          onClick={() => triggerSiteAssetUpload("hero")}
+                          className="bg-black hover:bg-neutral-800 text-white font-extrabold text-xs uppercase px-4 h-10 rounded-xl border-none shadow-sm flex items-center"
+                        >
+                          Upload Marquee Photo (Cloudinary)
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Quick Add By URL Bar */}
+                    <div className="mt-5 pt-4 border-t border-neutral-100 flex flex-col sm:flex-row gap-2">
+                      <Input
+                        placeholder="Paste marquee photo URL (e.g. https://images.unsplash.com/...)"
+                        value={newHeroInputUrl}
+                        onChange={(e) => setNewHeroInputUrl(e.target.value)}
+                        onPressEnter={() => handleAddHeroImage()}
+                        className="text-xs py-2 rounded-xl"
+                        prefix={<PictureOutlined className="text-neutral-400" />}
+                      />
+                      <Button
+                        onClick={() => handleAddHeroImage()}
+                        className="bg-neutral-900 hover:bg-black text-white font-bold text-xs uppercase px-5 h-9 rounded-xl shrink-0"
+                      >
+                        Add URL
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Photo Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-5">
+                    {siteContentData.heroMarqueeImages?.map((url, idx) => (
+                      <div
+                        key={idx}
+                        className="group relative bg-white rounded-2xl border border-neutral-200 overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col"
+                      >
+                        <div className="relative aspect-[16/10] bg-neutral-900 overflow-hidden">
+                          <img
+                            src={url}
+                            alt={`Marquee #${idx + 1}`}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            onError={(e) => {
+                              e.target.src =
+                                "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=600&q=80";
+                            }}
+                          />
+                          <div className="absolute top-2 left-2 z-10">
+                            <span className="bg-black/80 backdrop-blur-xs text-amber-400 text-[10px] font-mono font-black px-2 py-0.5 rounded shadow">
+                              SLOT #{idx + 1}
+                            </span>
+                          </div>
+
+                          {/* Hover Overlay */}
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2 z-20">
+                            <button
+                              onClick={() => triggerSiteAssetUpload("hero", idx)}
+                              className="w-full bg-amber-400 hover:bg-amber-300 text-black text-[10px] font-black uppercase py-1.5 px-2 rounded-lg flex items-center justify-center gap-1 shadow cursor-pointer transition-colors"
+                            >
+                              <UploadOutlined />
+                              <span>Replace</span>
+                            </button>
+                            <Popconfirm
+                              title="DELETE MARQUEE PHOTO?"
+                              description="Remove this photo from the hero scrolling banner?"
+                              onConfirm={() => handleRemoveHeroImage(idx)}
+                              okText="Delete"
+                              cancelText="Cancel"
+                              okButtonProps={{ className: "bg-red-600" }}
+                            >
+                              <button
+                                className="w-full bg-red-600/90 hover:bg-red-600 text-white text-[10px] font-bold uppercase py-1.5 px-2 rounded-lg flex items-center justify-center gap-1 shadow cursor-pointer transition-colors"
+                              >
+                                <DeleteOutlined />
+                                <span>Delete</span>
+                              </button>
+                            </Popconfirm>
+                          </div>
+                        </div>
+
+                        {/* URL Quick Edit Footer */}
+                        <div className="p-2 bg-neutral-50 border-t border-neutral-100 flex items-center justify-between text-[10px] font-mono text-neutral-500">
+                          <span className="truncate max-w-[120px]" title={url}>
+                            {url.replace(/^https?:\/\//, "")}
+                          </span>
+                          <Popover
+                            trigger="click"
+                            content={
+                              <div className="w-64 space-y-2 p-1">
+                                <span className="text-xs font-bold text-neutral-800 uppercase">
+                                  Edit Marquee Photo URL #{idx + 1}
+                                </span>
+                                <Input
+                                  defaultValue={url}
+                                  size="small"
+                                  className="text-xs font-mono"
+                                  onPressEnter={(e) => {
+                                    handleUpdateHeroImageUrl(idx, e.target.value);
+                                  }}
+                                />
+                                <span className="text-[10px] text-neutral-400 block">
+                                  Press Enter to apply live
+                                </span>
+                              </div>
+                            }
+                          >
+                            <button className="text-neutral-400 hover:text-black cursor-pointer p-0.5">
+                              <EditOutlined />
+                            </button>
+                          </Popover>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Sub-Tab 3: Hover FAQs Accordion */}
+              {siteContentSubTab === "faqs" && (
+                <div className="space-y-6">
+                  {/* Toolbar */}
+                  <div className="bg-white border border-neutral-200/80 rounded-2xl p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <h2 className="text-base font-serif font-black uppercase tracking-tight text-neutral-900 flex items-center gap-2">
+                        <span>FREQUENTLY ASKED QUESTIONS & HOVER THUMBNAILS</span>
+                        <span className="text-xs font-mono font-bold text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                          {siteContentData.faqs?.length || 0} ITEMS
+                        </span>
+                      </h2>
+                      <p className="text-xs text-neutral-500 mt-1 max-w-2xl">
+                        Hover accordion on the homepage. Hovering or clicking reveals question answers, feature badges, and the assigned preview thumbnail.
+                      </p>
+                    </div>
+
+                    <Button
+                      type="primary"
+                      icon={<PlusOutlined />}
+                      onClick={() => openFaqModal()}
+                      className="bg-black hover:bg-neutral-800 text-white font-extrabold text-xs uppercase px-5 h-10 rounded-xl border-none shadow-sm flex items-center shrink-0"
+                    >
+                      Add New FAQ Item
+                    </Button>
+                  </div>
+
+                  {/* FAQ Cards List */}
+                  <div className="space-y-4">
+                    {siteContentData.faqs?.map((faq, idx) => (
+                      <div
+                        key={faq.id || idx}
+                        className="bg-white border border-neutral-200/90 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-6 group"
+                      >
+                        <div className="flex items-start gap-5 min-w-0">
+                          {/* Image Thumbnail Preview with Quick Upload */}
+                          <div className="relative w-24 h-24 rounded-xl overflow-hidden bg-neutral-900 shrink-0 border border-neutral-200 shadow-xs group/img">
+                            <img
+                              src={faq.image}
+                              alt={faq.question}
+                              className="w-full h-full object-cover group-hover/img:scale-105 transition-transform"
+                              onError={(e) => {
+                                e.target.src =
+                                  "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=300&q=80";
+                              }}
+                            />
+                            <button
+                              onClick={() => triggerSiteAssetUpload("faqs", idx)}
+                              className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 transition-opacity flex flex-col items-center justify-center text-amber-400 text-[10px] font-black uppercase p-1 cursor-pointer"
+                              title="Click to replace FAQ preview photo via Cloudinary"
+                            >
+                              <UploadOutlined className="text-base" />
+                              <span>Replace</span>
+                            </button>
+                          </div>
+
+                          {/* FAQ Details */}
+                          <div className="space-y-2 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-mono text-[10px] font-black px-2 py-0.5 rounded bg-neutral-100 text-neutral-800">
+                                FAQ #{idx + 1}
+                              </span>
+                              {faq.badges?.map((badge, bIdx) => (
+                                <span
+                                  key={bIdx}
+                                  className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200"
+                                >
+                                  {badge}
+                                </span>
+                              ))}
+                            </div>
+                            <h3 className="text-sm font-serif font-black uppercase tracking-tight text-neutral-900 m-0">
+                              {faq.question}
+                            </h3>
+                            <p className="text-xs text-neutral-600 line-clamp-2 leading-relaxed m-0 font-normal">
+                              {faq.answer}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                          <Button
+                            icon={<EditOutlined />}
+                            onClick={() => openFaqModal(faq, idx)}
+                            className="text-xs font-bold uppercase rounded-lg border-neutral-300"
+                          >
+                            Edit
+                          </Button>
+                          <Popconfirm
+                            title="DELETE FAQ ITEM?"
+                            description="Are you sure you want to delete this FAQ item from homepage?"
+                            onConfirm={() => handleRemoveFaq(idx)}
+                            okText="Delete"
+                            cancelText="Cancel"
+                            okButtonProps={{ className: "bg-red-600" }}
+                          >
+                            <Button
+                              danger
+                              icon={<DeleteOutlined />}
+                              className="text-xs font-bold uppercase rounded-lg"
+                            />
+                          </Popconfirm>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Sub-Tab 4: Testimonials & Impact Cards */}
+              {siteContentSubTab === "testimonials" && (
+                <div className="space-y-8">
+                  {/* Top: Dark Summary Card Editor */}
+                  <div className="bg-white border border-neutral-200/80 rounded-2xl p-6 shadow-sm space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <h2 className="text-base font-serif font-black uppercase tracking-tight text-neutral-900 flex items-center gap-2">
+                          <span>IMPACT SUMMARY STATS CARD (DARK CARD PREVIEW)</span>
+                          <span className="text-xs font-mono font-bold text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                            HERO METRICS
+                          </span>
+                        </h2>
+                        <p className="text-xs text-neutral-500 mt-1 max-w-2xl">
+                          This dark impact card sits alongside customer reviews highlighting global ratings and delivered creative projects.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                      {/* Left: Live Preview of Dark Card */}
+                      <div className="lg:col-span-5 bg-[#121212] text-white p-6 sm:p-8 rounded-3xl border border-neutral-800 shadow-xl flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center space-x-1 text-amber-400 mb-6">
+                            {[...Array(5)].map((_, i) => (
+                              <StarFilled key={i} className="text-sm" />
+                            ))}
+                          </div>
+                          <div className="mb-4">
+                            <span className="font-serif text-4xl sm:text-5xl font-black text-white">
+                              {siteContentData.testimonialSummary?.score || "4.9"} /{" "}
+                              <sub className="text-2xl text-neutral-400 font-light">
+                                {siteContentData.testimonialSummary?.scale || "5"}
+                              </sub>
+                            </span>
+                          </div>
+                          <p className="text-neutral-300 text-sm font-medium leading-relaxed mb-6">
+                            {siteContentData.testimonialSummary?.description || (
+                              <>
+                                Helping companies grow through{" "}
+                                <span className="text-white font-bold underline decoration-amber-400 underline-offset-4">
+                                  {siteContentData.testimonialSummary?.highlightText || "56+ successful"}
+                                </span>{" "}
+                                creative projects.
+                              </>
+                            )}
+                          </p>
+                        </div>
+                        <div className="pt-4 border-t border-neutral-800/80">
+                          <span className="text-xs font-mono text-neutral-400">
+                            {siteContentData.testimonialSummary?.badgeText || "G2 ratings (120+ reviews)"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Right: Quick Editor Inputs */}
+                      <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-[11px] font-bold uppercase text-neutral-700 block mb-1">
+                            Rating Score
+                          </label>
+                          <Input
+                            value={siteContentData.testimonialSummary?.score || "4.9"}
+                            onChange={(e) => handleUpdateSummaryCard("score", e.target.value)}
+                            placeholder="4.9"
+                            className="text-xs py-2 rounded-xl"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold uppercase text-neutral-700 block mb-1">
+                            Scale Maximum
+                          </label>
+                          <Input
+                            value={siteContentData.testimonialSummary?.scale || "5"}
+                            onChange={(e) => handleUpdateSummaryCard("scale", e.target.value)}
+                            placeholder="5"
+                            className="text-xs py-2 rounded-xl"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="text-[11px] font-bold uppercase text-neutral-700 block mb-1">
+                            Highlight Bold Text
+                          </label>
+                          <Input
+                            value={siteContentData.testimonialSummary?.highlightText || "56+ successful"}
+                            onChange={(e) => handleUpdateSummaryCard("highlightText", e.target.value)}
+                            placeholder="56+ successful"
+                            className="text-xs py-2 rounded-xl"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="text-[11px] font-bold uppercase text-neutral-700 block mb-1">
+                            Full Summary Description
+                          </label>
+                          <Input.TextArea
+                            rows={2}
+                            value={siteContentData.testimonialSummary?.description || "Helping companies grow through 56+ successful creative projects."}
+                            onChange={(e) => handleUpdateSummaryCard("description", e.target.value)}
+                            className="text-xs py-2 rounded-xl"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="text-[11px] font-bold uppercase text-neutral-700 block mb-1">
+                            Badge / Reviewer Source Text
+                          </label>
+                          <Input
+                            value={siteContentData.testimonialSummary?.badgeText || "G2 ratings (120+ reviews)"}
+                            onChange={(e) => handleUpdateSummaryCard("badgeText", e.target.value)}
+                            placeholder="G2 ratings (120+ reviews)"
+                            className="text-xs py-2 rounded-xl"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Client Testimonials List */}
+                  <div className="bg-white border border-neutral-200/80 rounded-2xl p-6 shadow-sm space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
+                        <h2 className="text-base font-serif font-black uppercase tracking-tight text-neutral-900 flex items-center gap-2">
+                          <span>CLIENT REVIEWS & TESTIMONIAL CARDS</span>
+                          <span className="text-xs font-mono font-bold text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                            {siteContentData.testimonials?.length || 0} REVIEWS
+                          </span>
+                        </h2>
+                        <p className="text-xs text-neutral-500 mt-1 max-w-2xl">
+                          Elastic cards rendered in the "REAL STORIES FROM REAL CLIENTS" section of the homepage.
+                        </p>
+                      </div>
+
+                      <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={() => openTestimonialModal()}
+                        className="bg-black hover:bg-neutral-800 text-white font-extrabold text-xs uppercase px-5 h-10 rounded-xl border-none shadow-sm flex items-center shrink-0"
+                      >
+                        Add Testimonial
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {siteContentData.testimonials?.map((item, idx) => (
+                        <div
+                          key={item.id || idx}
+                          className="bg-neutral-50/70 border border-neutral-200 rounded-3xl p-6 flex flex-col justify-between hover:shadow-md transition-all group"
+                        >
+                          <div>
+                            {/* Header: Stars & Actions */}
+                            <div className="flex items-center justify-between mb-4">
+                              <div className="flex items-center space-x-1 text-amber-400">
+                                {[...Array(item.rating || 5)].map((_, i) => (
+                                  <StarFilled key={i} className="text-xs" />
+                                ))}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => openTestimonialModal(item, idx)}
+                                  className="p-1.5 rounded-lg text-neutral-400 hover:text-black hover:bg-neutral-200 cursor-pointer transition-colors"
+                                  title="Edit Testimonial"
+                                >
+                                  <EditOutlined />
+                                </button>
+                                <Popconfirm
+                                  title="DELETE TESTIMONIAL?"
+                                  description="Remove this client review from the storefront?"
+                                  onConfirm={() => handleRemoveTestimonial(idx)}
+                                  okText="Delete"
+                                  cancelText="Cancel"
+                                  okButtonProps={{ className: "bg-red-600" }}
+                                >
+                                  <button
+                                    className="p-1.5 rounded-lg text-neutral-400 hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
+                                    title="Delete Testimonial"
+                                  >
+                                    <DeleteOutlined />
+                                  </button>
+                                </Popconfirm>
+                              </div>
+                            </div>
+
+                            {/* Quote */}
+                            <p className="text-neutral-800 text-xs sm:text-sm font-medium leading-relaxed mb-6 italic">
+                              "{item.comment}"
+                            </p>
+
+                            {/* Metric Badges */}
+                            <div className="grid grid-cols-2 gap-3 mb-6 bg-white p-3 rounded-2xl border border-neutral-200/60">
+                              {item.stats?.map((st, sIdx) => (
+                                <div key={sIdx}>
+                                  <h4 className="font-serif text-xl font-bold text-neutral-900 m-0">
+                                    {st.value}
+                                  </h4>
+                                  <p className="text-[10px] text-neutral-400 font-medium m-0 truncate">
+                                    {st.label}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Profile Footer */}
+                          <div className="pt-4 border-t border-neutral-200 flex items-center justify-between">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="relative group/avatar">
+                                <img
+                                  src={item.avatar}
+                                  alt={item.name}
+                                  className="w-10 h-10 rounded-full object-cover border border-neutral-300"
+                                  onError={(e) => {
+                                    e.target.src =
+                                      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80";
+                                  }}
+                                />
+                                <button
+                                  onClick={() => triggerSiteAssetUpload("testimonials", idx)}
+                                  className="absolute inset-0 rounded-full bg-black/60 opacity-0 group-hover/avatar:opacity-100 flex items-center justify-center text-amber-400 text-xs cursor-pointer transition-opacity"
+                                  title="Replace Avatar via Cloudinary"
+                                >
+                                  <UploadOutlined />
+                                </button>
+                              </div>
+                              <div className="min-w-0">
+                                <h4 className="font-serif font-bold text-sm text-black m-0 truncate">
+                                  {item.name}
+                                </h4>
+                                <p className="text-[11px] text-neutral-500 m-0 truncate">
+                                  {item.role}
+                                </p>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-mono text-neutral-400">
+                              #{idx + 1}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </main>
@@ -4764,6 +5901,244 @@ const AdminDashboardPage = ({
           </div>
         </Form>
       </Modal>
+
+      {/* Homepage CMS: FAQ Modal */}
+      <Modal
+        title={
+          <span className="font-serif font-black uppercase tracking-tight text-lg text-black">
+            {editingFaqIndex >= 0 ? `EDIT FAQ #${editingFaqIndex + 1}` : "ADD NEW FAQ ITEM"}
+          </span>
+        }
+        open={faqModalOpen}
+        onCancel={() => setFaqModalOpen(false)}
+        footer={null}
+        width={560}
+        destroyOnClose
+      >
+        <Form
+          form={faqForm}
+          layout="vertical"
+          onFinish={handleSaveFaqSubmit}
+          className="pt-4 space-y-4"
+        >
+          <Form.Item
+            label={<span className="text-xs font-bold uppercase text-neutral-700">Question Title</span>}
+            name="question"
+            rules={[{ required: true, message: "Please enter question" }]}
+          >
+            <Input
+              placeholder="e.g. WHAT ARE YOUR WORLDWIDE SHIPPING TIMES?"
+              className="text-xs py-2 rounded-lg font-serif font-bold uppercase"
+            />
+          </Form.Item>
+
+          <Form.Item
+            label={<span className="text-xs font-bold uppercase text-neutral-700">Detailed Answer</span>}
+            name="answer"
+            rules={[{ required: true, message: "Please enter answer" }]}
+          >
+            <Input.TextArea
+              rows={4}
+              placeholder="Explain policies, delivery, or bespoke atelier crafting details..."
+              className="text-xs py-2 rounded-lg"
+            />
+          </Form.Item>
+
+          <Form.Item
+            label={<span className="text-xs font-bold uppercase text-neutral-700">Badges / Tags (Comma-Separated)</span>}
+            name="badges"
+          >
+            <Input
+              placeholder="e.g. DHL EXPRESS, 2-4 DAYS, FREE OVER $200"
+              className="text-xs py-2 rounded-lg font-mono font-bold uppercase"
+            />
+          </Form.Item>
+
+          <Form.Item
+            label={<span className="text-xs font-bold uppercase text-neutral-700">Hover Preview Image URL</span>}
+            name="image"
+            rules={[{ required: true, message: "Please provide an image URL" }]}
+          >
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="https://images.unsplash.com/..."
+                  className="text-xs py-2 rounded-lg font-mono"
+                />
+                <Button
+                  icon={<CloudUploadOutlined />}
+                  onClick={() => triggerSiteAssetUpload("faq_modal")}
+                  className="bg-neutral-900 text-white font-bold text-xs uppercase px-3 rounded-lg shrink-0"
+                >
+                  Upload Cloudinary
+                </Button>
+              </div>
+              <Form.Item
+                noStyle
+                shouldUpdate={(prev, cur) => prev.image !== cur.image}
+              >
+                {({ getFieldValue }) => {
+                  const img = getFieldValue("image");
+                  return img ? (
+                    <div className="w-full h-32 rounded-xl overflow-hidden bg-neutral-900 border border-neutral-200">
+                      <img src={img} alt="Preview" className="w-full h-full object-cover" />
+                    </div>
+                  ) : null;
+                }}
+              </Form.Item>
+            </div>
+          </Form.Item>
+
+          <div className="flex items-center justify-end space-x-2 pt-4 border-t border-neutral-200">
+            <Button onClick={() => setFaqModalOpen(false)} className="text-xs font-bold uppercase">
+              Cancel
+            </Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              className="bg-black hover:bg-neutral-800 text-white font-black text-xs uppercase px-6 rounded-lg border-none"
+            >
+              Save FAQ Item
+            </Button>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* Homepage CMS: Testimonial Modal */}
+      <Modal
+        title={
+          <span className="font-serif font-black uppercase tracking-tight text-lg text-black">
+            {editingTestimonialIndex >= 0 ? `EDIT TESTIMONIAL #${editingTestimonialIndex + 1}` : "ADD NEW CLIENT TESTIMONIAL"}
+          </span>
+        }
+        open={testimonialModalOpen}
+        onCancel={() => setTestimonialModalOpen(false)}
+        footer={null}
+        width={580}
+        destroyOnClose
+      >
+        <Form
+          form={testimonialForm}
+          layout="vertical"
+          onFinish={handleSaveTestimonialSubmit}
+          className="pt-4 space-y-4"
+        >
+          <Row gutter={16}>
+            <Col span={14}>
+              <Form.Item
+                label={<span className="text-xs font-bold uppercase text-neutral-700">Client / Reviewer Name</span>}
+                name="name"
+                rules={[{ required: true, message: "Please enter client name" }]}
+              >
+                <Input placeholder="e.g. Daniel Carter" className="text-xs py-2 rounded-lg font-bold" />
+              </Form.Item>
+            </Col>
+            <Col span={10}>
+              <Form.Item
+                label={<span className="text-xs font-bold uppercase text-neutral-700">Rating</span>}
+                name="rating"
+                rules={[{ required: true }]}
+              >
+                <Select
+                  options={[
+                    { value: 5, label: "★★★★★ (5 Stars)" },
+                    { value: 4, label: "★★★★☆ (4 Stars)" },
+                    { value: 3, label: "★★★☆☆ (3 Stars)" },
+                  ]}
+                  className="w-full text-xs"
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item
+            label={<span className="text-xs font-bold uppercase text-neutral-700">Role & Organization</span>}
+            name="role"
+            rules={[{ required: true, message: "Please enter role" }]}
+          >
+            <Input placeholder="e.g. CEO, BrightWave Studio" className="text-xs py-2 rounded-lg" />
+          </Form.Item>
+
+          <Form.Item
+            label={<span className="text-xs font-bold uppercase text-neutral-700">Testimonial Quote / Comment</span>}
+            name="comment"
+            rules={[{ required: true, message: "Please enter testimonial comment" }]}
+          >
+            <Input.TextArea
+              rows={3}
+              placeholder="Describe their experience with Legacy Store luxury products or VIP services..."
+              className="text-xs py-2 rounded-lg"
+            />
+          </Form.Item>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                label={<span className="text-xs font-bold uppercase text-neutral-700">Stat 1 (Value & Label)</span>}
+                name="stat1_value"
+              >
+                <Input placeholder="+42%" className="text-xs py-1.5 rounded-lg font-mono font-bold" />
+              </Form.Item>
+              <Form.Item name="stat1_label" className="-mt-2">
+                <Input placeholder="Lead Generation" className="text-xs py-1.5 rounded-lg" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label={<span className="text-xs font-bold uppercase text-neutral-700">Stat 2 (Value & Label)</span>}
+                name="stat2_value"
+              >
+                <Input placeholder="+63%" className="text-xs py-1.5 rounded-lg font-mono font-bold" />
+              </Form.Item>
+              <Form.Item name="stat2_label" className="-mt-2">
+                <Input placeholder="User Engagement" className="text-xs py-1.5 rounded-lg" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item
+            label={<span className="text-xs font-bold uppercase text-neutral-700">Avatar Photo URL</span>}
+            name="avatar"
+            rules={[{ required: true, message: "Please provide an avatar photo URL" }]}
+          >
+            <div className="flex gap-2">
+              <Input
+                placeholder="https://images.unsplash.com/..."
+                className="text-xs py-2 rounded-lg font-mono"
+              />
+              <Button
+                icon={<CloudUploadOutlined />}
+                onClick={() => triggerSiteAssetUpload("testimonial_modal")}
+                className="bg-neutral-900 text-white font-bold text-xs uppercase px-3 rounded-lg shrink-0"
+              >
+                Upload Cloudinary
+              </Button>
+            </div>
+          </Form.Item>
+
+          <div className="flex items-center justify-end space-x-2 pt-4 border-t border-neutral-200">
+            <Button onClick={() => setTestimonialModalOpen(false)} className="text-xs font-bold uppercase">
+              Cancel
+            </Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              className="bg-black hover:bg-neutral-800 text-white font-black text-xs uppercase px-6 rounded-lg border-none"
+            >
+              Save Testimonial
+            </Button>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* Global Hidden File Input for Site Asset Uploads via Cloudinary */}
+      <input
+        type="file"
+        ref={siteAssetFileInputRef}
+        accept="image/*"
+        onChange={handleSiteAssetFileSelected}
+        style={{ display: "none" }}
+      />
     </div>
   );
 };

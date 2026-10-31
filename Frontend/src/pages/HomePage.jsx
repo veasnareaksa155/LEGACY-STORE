@@ -16,6 +16,7 @@ import ProductCard from "../components/ProductCard";
 import LuxuryLoader from "../components/LuxuryLoader";
 import RibbonGlow from "../components/RibbonGlow";
 import HoverFaqAccordion from "../components/HoverFaqAccordion";
+import { getSiteContent } from "../services/siteContent";
 
 const GALLERY_ROW_1 = [
   "https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=800&q=80",
@@ -697,6 +698,17 @@ const HomePage = ({
     typeof window !== "undefined" ? window.innerWidth : 1200,
   );
 
+  const [siteContent, setSiteContent] = useState(() => getSiteContent());
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setSiteContent(getSiteContent());
+    };
+    window.addEventListener("legacy_site_content_updated", handleUpdate);
+    return () =>
+      window.removeEventListener("legacy_site_content_updated", handleUpdate);
+  }, []);
+
   // Track viewport width for responsive layout adjustments
   useEffect(() => {
     const handleResize = () => {
@@ -729,65 +741,12 @@ const HomePage = ({
         ? discountProducts
         : products.slice(0, 4);
 
-  // Elastic Testimonial Cards Data (Divi Motion Elastic Card Demo 05)
-  const elasticTestimonials = [
-    {
-      id: 1,
-      rating: 5,
-      comment:
-        "Their team delivered a stunning website that perfectly reflects our vision. Communication was seamless, deadlines were met, and the final result speaks for itself.",
-      stats: [
-        { value: "+42%", label: "Lead Generation" },
-        { value: "+63%", label: "User Engagement" },
-      ],
-      avatar:
-        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80",
-      name: "Daniel Carter",
-      role: "CEO, BrightWave Studio",
-    },
-    {
-      id: 2,
-      rating: 5,
-      comment:
-        "Working with this agency completely transformed our brand identity. The creative thinking, attention to detail, and strategic approach exceeded all expectations.",
-      stats: [
-        { value: "+34%", label: "Brand Engagement" },
-        { value: "+57%", label: "Website Conversions" },
-      ],
-      avatar:
-        "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
-      name: "Sarah Mitchell",
-      role: "Marketing Director",
-    },
-    {
-      id: 3,
-      rating: 5,
-      comment:
-        "Lyniq helps companies create stunning and strategically sound experiences that engage luxury audiences. Our experts work closely with you to ensure every detail is perfection.",
-      stats: [
-        { value: "+28%", label: "Customer Retention" },
-        { value: "+61%", label: "Conversion Rate" },
-      ],
-      avatar:
-        "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80",
-      name: "Andy Styles",
-      role: "Founder, Tech Startup",
-    },
-    {
-      id: 4,
-      rating: 5,
-      comment:
-        "From branding to digital experience, every detail was executed with creativity and precision. We've seen measurable business growth since launching our new identity.",
-      stats: [
-        { value: "+29%", label: "Customer Retention" },
-        { value: "+54%", label: "Sales Growth" },
-      ],
-      avatar:
-        "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80",
-      name: "Emma Rodriguez",
-      role: "Founder, Elevate Brands",
-    },
-  ];
+  // Dynamic Testimonials Data from Site Content
+  const elasticTestimonials =
+    siteContent?.testimonials && siteContent.testimonials.length > 0
+      ? siteContent.testimonials
+      : [];
+  const testimonialSummary = siteContent?.testimonialSummary || {};
 
   // FAQ Items
   const faqItems = [
@@ -1116,19 +1075,23 @@ const HomePage = ({
                 {/* Rating Score */}
                 <div className="mb-4">
                   <span className="font-serif text-5xl sm:text-6xl text-white font-normal">
-                    4.9 /{" "}
+                    {testimonialSummary.score || "4.9"} /{" "}
                     <sub className="text-2xl text-neutral-400 font-light">
-                      5
+                      {testimonialSummary.scale || "5"}
                     </sub>
                   </span>
                 </div>
 
                 <p className="text-neutral-300 text-base sm:text-lg font-medium leading-relaxed mb-8">
-                  Helping companies grow through{" "}
-                  <span className="text-white font-bold underline decoration-amber-400 underline-offset-4">
-                    56+ successful
-                  </span>{" "}
-                  creative projects.
+                  {testimonialSummary.description || (
+                    <>
+                      Helping companies grow through{" "}
+                      <span className="text-white font-bold underline decoration-amber-400 underline-offset-4">
+                        {testimonialSummary.highlightText || "56+ successful"}
+                      </span>{" "}
+                      creative projects.
+                    </>
+                  )}
                 </p>
               </div>
 
@@ -1159,7 +1122,7 @@ const HomePage = ({
                       ))}
                     </div>
                     <span className="text-xs text-neutral-400 font-mono">
-                      G2 ratings (120+ reviews)
+                      {testimonialSummary.badgeText || "G2 ratings (120+ reviews)"}
                     </span>
                   </div>
                 </div>
@@ -1212,7 +1175,12 @@ const HomePage = ({
 
         {/* Originkit 3D Round Carousel */}
         <RoundCarousel
-          images={[...GALLERY_ROW_1, ...GALLERY_ROW_2]}
+          images={
+            siteContent?.communityGalleryImages &&
+            siteContent.communityGalleryImages.length > 0
+              ? siteContent.communityGalleryImages
+              : [...GALLERY_ROW_1, ...GALLERY_ROW_2]
+          }
           imageWidth={260}
           imageHeight={320}
           spacing={2.5}

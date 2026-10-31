@@ -1,47 +1,27 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { PlusOutlined, MinusOutlined } from "@ant-design/icons";
+import { getSiteContent } from "../services/siteContent";
 
-const DEFAULT_FAQS = [
-  {
-    id: "1",
-    question: "WHAT ARE YOUR WORLDWIDE SHIPPING TIMES?",
-    answer:
-      "Express international shipping via DHL Express takes 2-4 business days. Complimentary worldwide shipping applies to all orders over $200 with full transit insurance.",
-    badges: ["DHL EXPRESS", "2-4 DAYS", "FREE OVER $200"],
-    image:
-      "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=300&q=80",
-  },
-  {
-    id: "2",
-    question: "HOW DO RETURNS & EXCHANGES WORK?",
-    answer:
-      "We offer a 30-day complimentary return window. Garments must be unworn with original tags attached in original luxury packaging with prepaid return labels included.",
-    badges: ["30-DAY RETURNS", "COMPLIMENTARY", "EASY EXCHANGE"],
-    image:
-      "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=300&q=80",
-  },
-  {
-    id: "3",
-    question: "WHERE ARE LEGACY PRODUCTS MANUFACTURED?",
-    answer:
-      "Our tailored shirts are designed in Paris, heavyweight tees produced in Milan from 280 GSM combed cotton, and calfskin footwear Goodyear welted in Porto, Portugal.",
-    badges: ["PARIS ATELIER", "MILAN COTTON", "PORTO FOOTWEAR"],
-    image:
-      "https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=300&q=80",
-  },
-  {
-    id: "4",
-    question: "HOW DO I TRACK MY BESPOKE SHIPMENT?",
-    answer:
-      "Once dispatched from our atelier, a live DHL Express tracking code is sent via SMS & email. VIP client advisors are available 24/7 for custom order updates.",
-    badges: ["24/7 CONCIERGE", "SMS ALERTS", "LIVE TRACKING"],
-    image:
-      "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=300&q=80",
-  },
-];
-
-export default function HoverFaqAccordion({ items = DEFAULT_FAQS }) {
+export default function HoverFaqAccordion({ items: customItems = null }) {
+  const [faqsList, setFaqsList] = useState(() => {
+    return customItems || getSiteContent().faqs;
+  });
   const [activeId, setActiveId] = useState("1");
+
+  useEffect(() => {
+    if (customItems) {
+      setFaqsList(customItems);
+      return;
+    }
+    const handleUpdate = () => {
+      setFaqsList(getSiteContent().faqs);
+    };
+    window.addEventListener("legacy_site_content_updated", handleUpdate);
+    return () =>
+      window.removeEventListener("legacy_site_content_updated", handleUpdate);
+  }, [customItems]);
+
+  const items = customItems || faqsList;
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-2.5">
