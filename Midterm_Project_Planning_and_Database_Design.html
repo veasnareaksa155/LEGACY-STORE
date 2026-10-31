@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Midterm Project Report: Project Planning & Database Design | LEGACY STORE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'loose' });
+  </script>
+  <style>
+    :root {
+      --primary: #0a0a0a;
+      --gold: #d4af37;
+      --gold-light: #fef9e7;
+      --gold-border: #d4af37;
+      --accent: #1e1e1e;
+      --border: #e5e7eb;
+      --bg: #f8fafc;
+      --text: #1f2937;
+      --text-muted: #6b7280;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding-bottom: 80px;
+    }
+
+    .container {
+      max-width: 1060px;
+      margin: 0 auto;
+      padding: 30px 24px;
+    }
+
+    /* Print Button */
+    .print-bar {
+      position: sticky;
+      top: 16px;
+      z-index: 100;
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 20px;
+    }
+
+    .print-btn {
+      background: #000;
+      color: #fff;
+      border: 1px solid #333;
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .print-btn:hover {
+      background: #d4af37;
+      color: #000;
+      border-color: #d4af37;
+    }
+
+    /* Header Banner */
+    .report-header {
+      background: linear-gradient(135deg, #09090b 0%, #18181b 100%);
+      color: #fff;
+      padding: 48px 40px;
+      border-radius: 20px;
+      margin-bottom: 36px;
+      border: 1px solid #27272a;
+      box-shadow: 0 20px 30px -10px rgba(0,0,0,0.2);
+    }
+
+    .badge-bar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      background: rgba(212, 175, 55, 0.15);
+      color: #facc15;
+      border: 1px solid rgba(212, 175, 55, 0.4);
+    }
+
+    .badge-outline {
+      background: rgba(255, 255, 255, 0.08);
+      color: #e4e4e7;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .report-title {
+      font-family: 'Cinzel', serif;
+      font-size: 34px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+      color: #ffffff;
+    }
+
+    .report-subtitle {
+      font-size: 15px;
+      color: #a1a1aa;
+      font-weight: 400;
+      max-width: 800px;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 28px;
+      padding-top: 24px;
+      border-top: 1px solid #27272a;
+    }
+
+    .meta-item {
+      font-size: 12px;
+    }
+
+    .meta-label {
+      color: #71717a;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .meta-val {
+      color: #fafafa;
+      font-weight: 600;
+    }
+
+    /* Section Cards */
+    .section-card {
+      background: #ffffff;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      padding: 32px;
+      margin-bottom: 32px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding-bottom: 14px;
+      border-bottom: 2px solid #f1f5f9;
+    }
+
+    .section-num {
+      background: #000;
+      color: #d4af37;
+      font-family: 'Cinzel', serif;
+      font-weight: 900;
+      font-size: 15px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+    }
+
+    .section-title {
+      font-family: 'Cinzel', serif;
+      font-size: 22px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: 0.5px;
+    }
+
+    h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1e293b;
+      margin: 24px 0 12px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    p {
+      color: #334155;
+      font-size: 14px;
+      line-height: 1.7;
+      margin-bottom: 14px;
+    }
+
+    ul, ol {
+      margin: 10px 0 16px 20px;
+      font-size: 14px;
+      color: #334155;
+    }
+
+    li {
+      margin-bottom: 6px;
+    }
+
+    /* Tables */
+    .table-wrap {
+      overflow-x: auto;
+      margin: 16px 0 24px 0;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      text-align: left;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #475569;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.8px;
+      padding: 12px 14px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+
+    td {
+      padding: 11px 14px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #1e293b;
+      vertical-align: middle;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: #fbfcfe;
+    }
+
+    /* Tag styles */
+    .tag-pk {
+      background: #fef08a;
+      color: #854d0e;
+      font-weight: 800;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #facc15;
+    }
+
+    .tag-fk {
+      background: #e0f2fe;
+      color: #0369a1;
+      font-weight: 800;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #7dd3fc;
+    }
+
+    .tag-uk {
+      background: #f3e8ff;
+      color: #6b21a8;
+      font-weight: 800;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid #d8b4fe;
+    }
+
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #0f172a;
+    }
+
+    pre {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 18px;
+      border-radius: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      overflow-x: auto;
+      margin: 14px 0 20px 0;
+      line-height: 1.5;
+    }
+
+    /* ERD Container */
+    .erd-container {
+      background: #fafafa;
+      padding: 24px;
+      border-radius: 14px;
+      border: 1px solid #e5e7eb;
+      margin: 20px 0;
+      text-align: center;
+      overflow-x: auto;
+    }
+
+    /* Alert / Callout Box */
+    .callout {
+      background: #f8fafc;
+      border-left: 4px solid #000;
+      padding: 16px 20px;
+      border-radius: 0 10px 10px 0;
+      margin: 18px 0;
+      font-size: 13px;
+      color: #334155;
+    }
+
+    .callout-gold {
+      background: #fffbeb;
+      border-left-color: #d4af37;
+    }
+
+    /* Print Media Queries */
+    @media print {
+      body {
+        background: #fff;
+        padding: 0;
+      }
+      .container {
+        max-width: 100%;
+        padding: 0;
+      }
+      .print-bar {
+        display: none;
+      }
+      .report-header {
+        background: #fff !important;
+        color: #000 !important;
+        border: 2px solid #000;
+        box-shadow: none;
+        padding: 24px;
+        page-break-after: avoid;
+      }
+      .report-title {
+        color: #000 !important;
+      }
+      .report-subtitle, .meta-label, .meta-val {
+        color: #333 !important;
+      }
+      .badge {
+        border-color: #000 !important;
+        color: #000 !important;
+        background: #eee !important;
+      }
+      .section-card {
+        border: 1px solid #ccc;
+        box-shadow: none;
+        page-break-inside: avoid;
+        margin-bottom: 24px;
+      }
+      pre {
+        background: #eee !important;
+        color: #000 !important;
+        border: 1px solid #ccc;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Floating Action Bar -->
+    <div class="print-bar">
+      <button class="print-btn" onclick="window.print()">
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/>
+          <path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2H5zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4V3zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2H5zm7 2v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1z"/>
+        </svg>
+        Print / Save to PDF
+      </button>
+    </div>
+
+    <!-- Main Header -->
+    <header class="report-header">
+      <div class="badge-bar">
+        <span class="badge">Midterm Submission</span>
+        <span class="badge badge-outline">Architecture & Planning</span>
+        <span class="badge badge-outline">React 19 + Laravel 11</span>
+      </div>
+      <h1 class="report-title">LEGACY STORE (ALEXANDRE LUXE)</h1>
+      <p class="report-subtitle">
+        System Engineering & Architectural Specification: Project Planning Lifecycle and Relational Database Schema Design for Haute Couture E-Commerce.
+      </p>
+
+      <div class="meta-grid">
+        <div class="meta-item">
+          <span class="meta-label">System Architecture</span>
+          <span class="meta-val">Decoupled RESTful SPA</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Primary Stack</span>
+          <span class="meta-val">React 19 / Laravel 11 / PostgreSQL</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">SDLC Framework</span>
+          <span class="meta-val">Agile Scrum (6 Sprints)</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Documentation Version</span>
+          <span class="meta-val">v2.4 (Midterm Defense Ready)</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- SECTION 1: PROJECT PLANNING -->
+    <section class="section-card">
+      <div class="section-header">
+        <div class="section-num">01</div>
+        <h2 class="section-title">SECTION 1: PROJECT PLANNING</h2>
+      </div>
+
+      <h3>1.1 Executive Summary & Problem Formulation</h3>
+      <p>
+        Traditional fashion e-commerce platforms often deliver static, cookie-cutter shopping experiences lacking emotional connection, interactive visual engagement, and real-time fulfillment visibility. High-end couture brands require interactive visual merchandising, transparent order fulfillment, and a live Content Management System (CMS) allowing marketing managers to update promotional banners, 3D cylindrical carousels, FAQs, and client metrics without writing code or redeploying the server.
+      </p>
+      <div class="callout callout-gold">
+        <strong>Core Mission:</strong> Build a high-performance luxury retail platform unifying 3D cylindrical community carousels, dynamic color-variant image switching, live GPS driver delivery telemetry, and an integrated Cloudinary media CDN.
+      </div>
+
+      <h3>1.2 Scope & Functional Boundaries</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Module</th>
+              <th>In-Scope Functionality</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Authentication & RBAC</strong></td>
+              <td>Multi-role authorization (SuperAdmin, Driver, VIP User), Sanctum tokens, Google verify flow.</td>
+              <td><span class="badge">Completed</span></td>
+            </tr>
+            <tr>
+              <td><strong>Merchandising Catalog</strong></td>
+              <td>Category hierarchy, multi-facet filtering, color-image variant linking, stock control.</td>
+              <td><span class="badge">Completed</span></td>
+            </tr>
+            <tr>
+              <td><strong>Visual 3D Engine</strong></td>
+              <td>Revolving cylindrical community carousel, hero vertical marquee, hover FAQ accordions.</td>
+              <td><span class="badge">Completed</span></td>
+            </tr>
+            <tr>
+              <td><strong>Cart & Checkout</strong></td>
+              <td>Persistent cart, dynamic shipping fees (Standard/Express/Free), Card & Bakong KHQR payments.</td>
+              <td><span class="badge">Completed</span></td>
+            </tr>
+            <tr>
+              <td><strong>Logistics Telemetry</strong></td>
+              <td>Real-time order statuses, driver courier assignments, GPS coordinates (lat/lng), live ETA.</td>
+              <td><span class="badge">Completed</span></td>
+            </tr>
+            <tr>
+              <td><strong>Admin CMS & CDN</strong></td>
+              <td>Cloudinary direct unsigned CDN upload, product management, live homepage content editor.</td>
+              <td><span class="badge">Completed</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>1.3 Agile / Scrum Lifecycle & Sprint Milestones</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Sprint</th>
+              <th>Timeline</th>
+              <th>Focus Area</th>
+              <th>Key Deliverables</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Sprint 1</strong></td>
+              <td>Weeks 1–2</td>
+              <td>Core Architecture</td>
+              <td>DB Migrations, User Auth, Sanctum Tokens, Roles (superadmin, driver, user).</td>
+            </tr>
+            <tr>
+              <td><strong>Sprint 2</strong></td>
+              <td>Weeks 3–4</td>
+              <td>Product Catalog</td>
+              <td>Category CRUD, Product CRUD, JSON variant attributes (sizes, colors, gallery).</td>
+            </tr>
+            <tr>
+              <td><strong>Sprint 3</strong></td>
+              <td>Weeks 5–6</td>
+              <td>Cart & Checkout</td>
+              <td>Cart drawer, multi-step checkout, fee logic, Bakong KHQR payment integration.</td>
+            </tr>
+            <tr>
+              <td><strong>Sprint 4</strong></td>
+              <td>Weeks 7–8</td>
+              <td>Logistics & GPS</td>
+              <td>Driver dispatch assignment, delivery milestones, live GPS telemetry coords.</td>
+            </tr>
+            <tr>
+              <td><strong>Sprint 5</strong></td>
+              <td>Weeks 9–10</td>
+              <td>CMS & Visual Assets</td>
+              <td>Cloudinary CDN uploads, color-variant photo mapper, 3D cylindrical gallery.</td>
+            </tr>
+            <tr>
+              <td><strong>Sprint 6</strong></td>
+              <td>Weeks 11–12</td>
+              <td>Audit & Midterm</td>
+              <td>Cross-device mobile testing, performance tuning, academic documentation.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>1.4 Work Breakdown Structure (WBS)</h3>
+      <pre>
+1.0 LEGACY STORE PLATFORM
+ ├── 1.1 Requirements & System Architecture
+ │    ├── 1.1.1 Stakeholder Analysis & User Personas (Shopper, Driver, SuperAdmin)
+ │    ├── 1.1.2 Functional & Non-Functional Specifications
+ │    └── 1.1.3 Tech Stack Selection & Development Environment Setup
+ ├── 1.2 Database & Data Engineering
+ │    ├── 1.2.1 Conceptual & Logical Schema Modeling
+ │    ├── 1.2.2 3NF Normalization & Constraint Verification
+ │    └── 1.2.3 Migration Scripts & Database Seeding (Laravel Eloquent)
+ ├── 1.3 Backend API Development (Laravel 11)
+ │    ├── 1.3.1 Authentication & Sanctum RBAC Middleware
+ │    ├── 1.3.2 Product, Category, & Review API Endpoints
+ │    ├── 1.3.3 Order Creation & Transactional Processing
+ │    └── 1.3.4 Driver Telemetry & Delivery Status Endpoints
+ ├── 1.4 Frontend Development (React 19 + Vite)
+ │    ├── 1.4.1 Luxury Design System & Tailwind Styling
+ │    ├── 1.4.2 Product Filtering, Quick View & Detail Pages
+ │    ├── 1.4.3 Cart Sidebar & Multi-Payment Checkout Form
+ │    └── 1.4.4 Live Delivery Tracking & Interactive Map UI
+ ├── 1.5 SuperAdmin CMS & Media Integration
+ │    ├── 1.5.1 Cloudinary Direct CDN Upload Service
+ │    ├── 1.5.2 Product Variant Color-to-Image Mapper
+ │    └── 1.5.3 Real-Time Homepage Content Synchronization
+ └── 1.6 Verification & Midterm Submission
+      ├── 1.6.1 Unit, Integration & API Endpoint Testing
+      ├── 1.6.2 Cross-Device Mobile Responsiveness Testing
+      └── 1.6.3 Midterm Documentation & Code Repository Audit</pre>
+
+      <h3>1.5 Risk Management & Mitigation</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Risk</th>
+              <th>Impact</th>
+              <th>Probability</th>
+              <th>Mitigation Strategy</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Inventory race conditions during concurrent checkouts</td>
+              <td>High</td>
+              <td>Low</td>
+              <td>Wrapped stock reductions and order creation inside atomic <code>DB::transaction()</code>.</td>
+            </tr>
+            <tr>
+              <td>Cloudinary upload network latency</td>
+              <td>Medium</td>
+              <td>Medium</td>
+              <td>Client-side image optimization, direct unsigned CDN requests, and base64 instant previews.</td>
+            </tr>
+            <tr>
+              <td>Unauthorized privilege escalation to Admin API</td>
+              <td>Critical</td>
+              <td>Low</td>
+              <td>Role-based middleware verifying Sanctum tokens and <code>role === 'superadmin'</code>.</td>
+            </tr>
+            <tr>
+              <td>Mobile viewport layout displacement</td>
+              <td>Medium</td>
+              <td>High</td>
+              <td>Mobile-first Tailwind CSS breakpoints, drawer navigation, and touch-optimized controls.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 2: DATABASE DESIGN -->
+    <section class="section-card">
+      <div class="section-header">
+        <div class="section-num">02</div>
+        <h2 class="section-title">SECTION 2: DATABASE DESIGN</h2>
+      </div>
+
+      <h3>2.1 Normalization & Architectural Principles</h3>
+      <p>
+        The database follows strict <strong>Third Normal Form (3NF)</strong> guidelines:
+      </p>
+      <ul>
+        <li><strong>Atomic Attributes (1NF):</strong> No multivalued or repeating group columns. Complex attributes (such as color mapping and gallery URLs) leverage native JSON columns with indexable keys.</li>
+        <li><strong>Full Functional Dependency (2NF):</strong> All non-key attributes depend entirely on table primary keys.</li>
+        <li><strong>Transitive Independence (3NF):</strong> No non-key attributes depend on other non-key attributes. Category names reside strictly in <code>categories</code>, referenced via foreign keys.</li>
+      </ul>
+
+      <h3>2.2 Entity Relationship Diagram (ERD)</h3>
+      <div class="erd-container">
+        <pre class="mermaid">
+erDiagram
+    USERS ||--o{ ORDERS : places
+    CATEGORIES ||--o{ PRODUCTS : classifies
+    PRODUCTS ||--o{ ORDER_ITEMS : contains
+    PRODUCTS ||--o{ REVIEWS : receives
+    ORDERS ||--|{ ORDER_ITEMS : includes
+
+    USERS {
+        bigint id PK
+        string name
+        string email UK
+        string password
+        string role "superadmin | driver | user"
+        string phone
+        string address
+        string tier "BLACK DIAMOND VIP"
+        string vehicle_tag "nullable (for drivers)"
+        text avatar "nullable"
+        timestamp email_verified_at
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    CATEGORIES {
+        bigint id PK
+        string name
+        string slug UK
+        text description
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    PRODUCTS {
+        bigint id PK
+        bigint category_id FK
+        string name
+        string slug UK
+        decimal price "10,2"
+        decimal original_price "10,2 nullable"
+        text description
+        json sizes "e.g. ['S', 'M', 'L', 'XL']"
+        json colors "e.g. ['Black', 'Navy']"
+        json color_images "e.g. {'Black': 'url1'}"
+        string image_url "Primary Cover Photo"
+        json gallery "Multi-Angle Angle Photos"
+        boolean is_featured "Hot Drop flag"
+        boolean is_new "New Arrival flag"
+        int stock "Inventory quantity"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    ORDERS {
+        bigint id PK
+        string order_number UK
+        string customer_name
+        string customer_email
+        string phone
+        text shipping_address
+        string payment_method "card | khqr | cod"
+        decimal total_amount "10,2"
+        string status "completed | pending | cancelled"
+        string delivery_status "pending | in_transit | delivered"
+        string courier_name
+        string courier_phone
+        decimal driver_lat "10,7"
+        decimal driver_lng "10,7"
+        int estimated_minutes
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    ORDER_ITEMS {
+        bigint id PK
+        bigint order_id FK
+        bigint product_id FK "nullable on delete set null"
+        string product_name
+        decimal price "10,2"
+        int quantity
+        string size "nullable"
+        string color "nullable"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    REVIEWS {
+        bigint id PK
+        bigint product_id FK
+        string user_name
+        int rating "1 to 5"
+        text comment
+        timestamp created_at
+        timestamp updated_at
+    }
+        </pre>
+      </div>
+
+      <h3>2.3 Data Dictionary & Schema Specifications</h3>
+
+      <!-- Table 1: users -->
+      <h4>Table 1: <code>users</code></h4>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Column Name</th>
+              <th>Data Type</th>
+              <th>Null</th>
+              <th>Key / Constraints</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>id</code></td>
+              <td>BIGINT UNSIGNED</td>
+              <td>No</td>
+              <td><span class="tag-pk">PK</span> Auto-Increment</td>
+              <td>Surrogate primary key</td>
+            </tr>
+            <tr>
+              <td><code>name</code></td>
+              <td>VARCHAR(255)</td>
+              <td>No</td>
+              <td>—</td>
+              <td>Customer or administrator full name</td>
+            </tr>
+            <tr>
+              <td><code>email</code></td>
+              <td>VARCHAR(255)</td>
+              <td>No</td>
+              <td><span class="tag-uk">UK</span> Unique</td>
+              <td>Authentication email address</td>
+            </tr>
+            <tr>
+              <td><code>password</code></td>
+              <td>VARCHAR(255)</td>
+              <td>No</td>
+              <td>—</td>
+              <td>Bcrypt encrypted password hash</td>
+            </tr>
+            <tr>
+              <td><code>role</code></td>
+              <td>VARCHAR(50)</td>
+              <td>No</td>
+              <td>DEFAULT 'user'</td>
+              <td>Access level: 'superadmin', 'driver', 'user'</td>
+            </tr>
+            <tr>
+              <td><code>phone</code></td>
+              <td>VARCHAR(50)</td>
+              <td>Yes</td>
+              <td>NULL</td>
+              <td>Client or courier contact telephone</td>
+            </tr>
+            <tr>
+              <td><code>address</code></td>
+              <td>VARCHAR(255)</td>
+              <td>Yes</td>
+              <td>NULL</td>
+              <td>Default shipping destination address</td>
+            </tr>
+            <tr>
+              <td><code>tier</code></td>
+              <td>VARCHAR(50)</td>
+              <td>No</td>
+              <td>DEFAULT 'BLACK DIAMOND VIP'</td>
+              <td>Client patronage membership tier</td>
+            </tr>
+            <tr>
+              <td><code>vehicle_tag</code></td>
+              <td>VARCHAR(100)</td>
+              <td>Yes</td>
+              <td>NULL</td>
+              <td>Vehicle license plate tag (for driver accounts)</td>
+            </tr>
+            <tr>
+              <td><code>avatar</code></td>
+              <td>TEXT</td>
+              <td>Yes</td>
+              <td>NULL</td>
+              <td>Profile photo URL (Cloudinary CDN or remote)</td>
+            </tr>
+            <tr>
+              <td><code>created_at</code> / <code>updated_at</code></td>
+              <td>TIMESTAMP</td>
+              <td>Yes</td>
+              <td>NULL</td>
+              <td>Record lifecycle timestamps</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Table 2: categories -->
+      <h4>Table 2: <code>categories</code></h4>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Column Name</th>
+              <th>Data Type</th>
+              <th>Null</th>
+              <th>Key / Constraints</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>id</code></td>
+              <td>BIGINT UNSIGNED</td>
+              <td>No</td>
+              <td><span class="tag-pk">PK</span> Auto-Increment</td>
+              <td>Category primary identifier</td>
+            </tr>
+            <tr>
+              <td><code>name</code></td>
+              <td>VARCHAR(255)</td>
+              <td>No</td>
+              <td>—</td>
+              <td>Department display title (e.g. Footwear)</td>
+            </tr>
+            <tr>
+              <td><code>slug</code></td>
+              <td>VARCHAR(255)</td>
+              <td>No</td>
+              <td><span class="tag-uk">UK</span> Unique</td>
+              <td>URL routing slug (e.g. footwear)</td>
+            </tr>
+            <tr>
+              <td><code>description</code></td>
+              <td>TEXT</td>
+              <td>Yes</td>
+              <td>NULL</td>
+              <td>Department editorial description</td>
+            </tr>
+            <tr>
+              <td><code>created_at</code> / <code>updated_at</code></td>
+              <td>TIMESTAMP</td>
+              <td>Yes</td>
+              <td>NULL</td>
+              <td>Record creation & update timestamps</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Table 3: products -->
+      <h4>Table 3: <code>products</code></h4>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Column Name</th>
+              <th>Data Type</th>
+              <th>Null</th>
+              <th>Key / Constraints</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>id</code></td>
+              <td>BIGINT UNSIGNED</td>
+              <td>No</td>
+              <td><span class="tag-pk">PK</span> Auto-Increment</td>
+              <td>Product unique SKU identifier</td>
+            </tr>
+            <tr>
+              <td><code>category_id</code></td>
+              <td>BIGINT UNSIGNED</td>
+              <td>No</td>
+              <td><span class="tag-fk">FK</span> CASCADE</td>
+              <td>References <code>categories(id)</code></td>
+            </tr>
+            <tr>
+              <td><code>name</code></td>
+              <td>VARCHAR(255)</td>
+              <td>No</td>
+              <td>—</td>
+              <td>Garment title (e.g. Tailored Silk Shirt)</td>
+            </tr>
+            <tr>
+              <td><code>slug</code></td>
+              <td>VARCHAR(255)</td>
+              <td>No</td>
+              <td><span class="tag-uk">UK</span> Unique</td>
+              <td>SEO unique web slug</td>
+            </tr>
+            <tr>
+              <td><code>price</code></td>
+              <td>DECIMAL(10,2)</td>
+              <td>No</td>
+              <td>—</td>
+              <td>Active selling price in USD</td>
+            </tr>
+            <tr>
+              <td><code>original_price</code></td>
+              <td>DECIMAL(10,2)</td>
+              <td>Yes</td>
+              <td>NULL</td>
+              <td>Pre-discount comparison price</td>
+            </tr>
+            <tr>
+              <td><code>sizes</code></td>
+              <td>JSON</td>
+              <td>Yes</td>
+              <td>NULL</td>
+              <td>Array of sizes: <code>["S", "M", "L", "XL"]</code></td>
+            </tr>
+            <tr>
+              <td><code>colors</code></td>
+              <td>JSON</td>
+              <td>Yes</td>
+              <td>NULL</td>
+              <td>Array of colors: <code>["Black", "White"]</code></td>
+            </tr>
+            <tr>
+              <td><code>color_images</code></td>
+              <td>JSON</td>
+              <td>Yes</td>
+              <td>NULL</td>
+              <td>Mapping: <code>{"Black": "url1", "White": "url2"}</code></td>
+            </tr>
+            <tr>
+              <td><code>image_url</code></td>
+              <td>VARCHAR(500)</td>
+              <td>No</td>
+              <td>—</td>
+              <td>Primary cover photo URL</td>
+            </tr>
+            <tr>
+              <td><code>gallery</code></td>
+              <td>JSON</td>
+              <td>Yes</td>
+              <td>NULL</td>
+              <td>Array of secondary multi-angle photo URLs</td>
+            </tr>
+            <tr>
+              <td><code>is_featured</code></td>
+              <td>BOOLEAN</td>
+              <td>No</td>
+              <td>DEFAULT false</td>
+              <td>"Hot Drop" promotional showcase flag</td>
+            </tr>
+            <tr>
+              <td><code>is_new</code></td>
+              <td>BOOLEAN</td>
+              <td>No</td>
+              <td>DEFAULT false</td>
+              <td>"New Arrival" merchandising tag</td>
+            </tr>
+            <tr>
+              <td><code>stock</code></td>
+              <td>INTEGER</td>
+              <td>No</td>
+              <td>DEFAULT 50</td>
+              <td>Available warehouse inventory units</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Table 4: orders -->
+      <h4>Table 4: <code>orders</code></h4>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Column Name</th>
+              <th>Data Type</th>
+              <th>Null</th>
+              <th>Key / Constraints</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>id</code></td>
+              <td>BIGINT UNSIGNED</td>
+              <td>No</td>
+              <td><span class="tag-pk">PK</span> Auto-Increment</td>
+              <td>Order primary key</td>
+            </tr>
+            <tr>
+              <td><code>order_number</code></td>
+              <td>VARCHAR(255)</td>
+              <td>No</td>
+              <td><span class="tag-uk">UK</span> Unique</td>
+              <td>Public receipt tracking code (ORD-XXXXX)</td>
+            </tr>
+            <tr>
+              <td><code>customer_name</code></td>
+              <td>VARCHAR(255)</td>
+              <td>No</td>
+              <td>—</td>
+              <td>Recipient full name</td>
+            </tr>
+            <tr>
+              <td><code>customer_email</code></td>
+              <td>VARCHAR(255)</td>
+              <td>No</td>
+              <td>—</td>
+              <td>Order confirmation email address</td>
+            </tr>
+            <tr>
+              <td><code>phone</code></td>
+              <td>VARCHAR(50)</td>
+              <td>No</td>
+              <td>—</td>
+              <td>Delivery contact phone number</td>
+            </tr>
+            <tr>
+              <td><code>shipping_address</code></td>
+              <td>TEXT</td>
+              <td>No</td>
+              <td>—</td>
+              <td>Delivery destination address</td>
+            </tr>
+            <tr>
+              <td><code>payment_method</code></td>
+              <td>VARCHAR(50)</td>
+              <td>No</td>
+              <td>DEFAULT 'card'</td>
+              <td>Method: 'card', 'khqr', 'cod'</td>
+            </tr>
+            <tr>
+              <td><code>total_amount</code></td>
+              <td>DECIMAL(10,2)</td>
+              <td>No</td>
+              <td>—</td>
+              <td>Gross purchase amount charged</td>
+            </tr>
+            <tr>
+              <td><code>status</code></td>
+              <td>VARCHAR(50)</td>
+              <td>No</td>
+              <td>DEFAULT 'completed'</td>
+              <td>Order lifecycle state ('pending', 'completed')</td>
+            </tr>
+            <tr>
+              <td><code>delivery_status</code></td>
+              <td>VARCHAR(50)</td>
+              <td>No</td>
+              <td>DEFAULT 'pending'</td>
+              <td>Fulfillment state: 'pending', 'in_transit', 'delivered'</td>
+            </tr>
+            <tr>
+              <td><code>courier_name</code></td>
+              <td>VARCHAR(255)</td>
+              <td>Yes</td>
+              <td>'Sokha Express'</td>
+              <td>Assigned courier driver full name</td>
+            </tr>
+            <tr>
+              <td><code>courier_phone</code></td>
+              <td>VARCHAR(50)</td>
+              <td>Yes</td>
+              <td>'+855 12 888 999'</td>
+              <td>Driver contact phone number</td>
+            </tr>
+            <tr>
+              <td><code>driver_lat</code></td>
+              <td>DECIMAL(10,7)</td>
+              <td>Yes</td>
+              <td>11.5564</td>
+              <td>Current courier GPS latitude</td>
+            </tr>
+            <tr>
+              <td><code>driver_lng</code></td>
+              <td>DECIMAL(10,7)</td>
+              <td>Yes</td>
+              <td>104.9282</td>
+              <td>Current courier GPS longitude</td>
+            </tr>
+            <tr>
+              <td><code>estimated_minutes</code></td>
+              <td>INTEGER</td>
+              <td>Yes</td>
+              <td>25</td>
+              <td>Estimated delivery arrival time in minutes</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Table 5: order_items -->
+      <h4>Table 5: <code>order_items</code></h4>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Column Name</th>
+              <th>Data Type</th>
+              <th>Null</th>
+              <th>Key / Constraints</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>id</code></td>
+              <td>BIGINT UNSIGNED</td>
+              <td>No</td>
+              <td><span class="tag-pk">PK</span> Auto-Increment</td>
+              <td>Line item unique identifier</td>
+            </tr>
+            <tr>
+              <td><code>order_id</code></td>
+              <td>BIGINT UNSIGNED</td>
+              <td>No</td>
+              <td><span class="tag-fk">FK</span> CASCADE</td>
+              <td>References <code>orders(id)</code></td>
+            </tr>
+            <tr>
+              <td><code>product_id</code></td>
+              <td>BIGINT UNSIGNED</td>
+              <td>Yes</td>
+              <td><span class="tag-fk">FK</span> SET NULL</td>
+              <td>References <code>products(id)</code> (preserves receipt)</td>
+            </tr>
+            <tr>
+              <td><code>product_name</code></td>
+              <td>VARCHAR(255)</td>
+              <td>No</td>
+              <td>—</td>
+              <td>Frozen item name at time of sale</td>
+            </tr>
+            <tr>
+              <td><code>price</code></td>
+              <td>DECIMAL(10,2)</td>
+              <td>No</td>
+              <td>—</td>
+              <td>Frozen unit price at checkout</td>
+            </tr>
+            <tr>
+              <td><code>quantity</code></td>
+              <td>INTEGER</td>
+              <td>No</td>
+              <td>—</td>
+              <td>Number of units purchased</td>
+            </tr>
+            <tr>
+              <td><code>size</code> / <code>color</code></td>
+              <td>VARCHAR(50)</td>
+              <td>Yes</td>
+              <td>NULL</td>
+              <td>Selected variant size and color</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Table 6: reviews -->
+      <h4>Table 6: <code>reviews</code></h4>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Column Name</th>
+              <th>Data Type</th>
+              <th>Null</th>
+              <th>Key / Constraints</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>id</code></td>
+              <td>BIGINT UNSIGNED</td>
+              <td>No</td>
+              <td><span class="tag-pk">PK</span> Auto-Increment</td>
+              <td>Review unique identifier</td>
+            </tr>
+            <tr>
+              <td><code>product_id</code></td>
+              <td>BIGINT UNSIGNED</td>
+              <td>No</td>
+              <td><span class="tag-fk">FK</span> CASCADE</td>
+              <td>References <code>products(id)</code></td>
+            </tr>
+            <tr>
+              <td><code>user_name</code></td>
+              <td>VARCHAR(255)</td>
+              <td>No</td>
+              <td>—</td>
+              <td>Author public display name</td>
+            </tr>
+            <tr>
+              <td><code>rating</code></td>
+              <td>INTEGER</td>
+              <td>No</td>
+              <td>CHECK (1..5)</td>
+              <td>Star rating score from 1 to 5</td>
+            </tr>
+            <tr>
+              <td><code>comment</code></td>
+              <td>TEXT</td>
+              <td>Yes</td>
+              <td>NULL</td>
+              <td>Customer feedback review text</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>2.4 Indexing & Query Acceleration Strategy</h3>
+      <pre>
+-- Fast slug and identifier lookups
+CREATE UNIQUE INDEX idx_categories_slug ON categories(slug);
+CREATE UNIQUE INDEX idx_products_slug ON products(slug);
+CREATE UNIQUE INDEX idx_users_email ON users(email);
+CREATE UNIQUE INDEX idx_orders_number ON orders(order_number);
+
+-- Relational foreign key indexers
+CREATE INDEX idx_products_category_id ON products(category_id);
+CREATE INDEX idx_products_price ON products(price);
+CREATE INDEX idx_order_items_order_id ON order_items(order_id);
+CREATE INDEX idx_reviews_product_id ON reviews(product_id);
+
+-- Operational dispatch queries
+CREATE INDEX idx_orders_delivery_status ON orders(delivery_status);
+CREATE INDEX idx_orders_created_at ON orders(created_at DESC);</pre>
+
+      <h3>2.5 ACID Transactional Implementation</h3>
+      <p>
+        To ensure strict transactional integrity during multi-item checkouts:
+      </p>
+      <ul>
+        <li><strong>Atomic Rollback:</strong> Database mutations are executed inside <code>DB::transaction()</code>. If payment processing fails or stock is exhausted mid-checkout, all modifications to <code>orders</code>, <code>order_items</code>, and <code>products</code> are automatically rolled back.</li>
+        <li><strong>Immutable Receipts:</strong> Product names and sale prices are snapshotted directly into <code>order_items</code>. Subsequent catalog price adjustments never mutate past historical transactions.</li>
+      </ul>
+    </section>
+  </div>
+
+</body>
+</html>
