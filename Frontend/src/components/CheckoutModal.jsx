@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Modal, Form, Input, Button, Radio, QRCode, notification } from "antd";
 import {
   LockOutlined,
@@ -7,6 +7,17 @@ import {
   SyncOutlined,
   ThunderboltOutlined,
   CheckOutlined,
+  CreditCardOutlined,
+  QrcodeOutlined,
+  DownloadOutlined,
+  CopyOutlined,
+  MobileOutlined,
+  SafetyCertificateOutlined,
+  TagOutlined,
+  CarOutlined,
+  InboxOutlined,
+  ShoppingOutlined,
+  BankOutlined,
 } from "@ant-design/icons";
 import {
   BakongKHQR,
@@ -19,6 +30,40 @@ import {
   checkBakongPaymentStatus,
 } from "../services/api";
 import { getDeliverySettings } from "../services/deliverySettings";
+
+const UsFlagIcon = () => (
+  <span className="inline-flex items-center justify-center w-4 h-3 rounded-xs overflow-hidden shadow-2xs border border-white/20 shrink-0">
+    <svg viewBox="0 0 16 12" className="w-full h-full block">
+      <rect width="16" height="12" fill="#B22234" />
+      <rect y="0.92" width="16" height="0.92" fill="#FFFFFF" />
+      <rect y="2.76" width="16" height="0.92" fill="#FFFFFF" />
+      <rect y="4.6" width="16" height="0.92" fill="#FFFFFF" />
+      <rect y="6.44" width="16" height="0.92" fill="#FFFFFF" />
+      <rect y="8.28" width="16" height="0.92" fill="#FFFFFF" />
+      <rect y="10.12" width="16" height="0.92" fill="#FFFFFF" />
+      <rect width="7.2" height="6.46" fill="#3C3B6E" />
+      <circle cx="1.8" cy="1.6" r="0.55" fill="#FFFFFF" />
+      <circle cx="5.4" cy="1.6" r="0.55" fill="#FFFFFF" />
+      <circle cx="3.6" cy="3.2" r="0.55" fill="#FFFFFF" />
+      <circle cx="1.8" cy="4.8" r="0.55" fill="#FFFFFF" />
+      <circle cx="5.4" cy="4.8" r="0.55" fill="#FFFFFF" />
+    </svg>
+  </span>
+);
+
+const KhFlagIcon = () => (
+  <span className="inline-flex items-center justify-center w-4 h-3 rounded-xs overflow-hidden shadow-2xs border border-white/20 shrink-0">
+    <svg viewBox="0 0 16 12" className="w-full h-full block">
+      <rect width="16" height="3" fill="#032ea1" />
+      <rect y="3" width="16" height="6" fill="#e00025" />
+      <rect y="9" width="16" height="3" fill="#032ea1" />
+      <path
+        d="M4.5 8h7v-2h-1v-1h-1.2v-1.2h-1.6v1.2H6.5v1h-1v2z"
+        fill="#ffffff"
+      />
+    </svg>
+  </span>
+);
 
 const calculateMd5 = (string) => {
   function rotateLeft(lValue, iShiftBits) {
@@ -214,47 +259,17 @@ const generateClientKhqr = (orderId, amount, currency = "USD") => {
   const isKhr = currency === "KHR";
   const numAmount = Number(amount);
   const billNum = `LX${String(orderId).padStart(6, "0").slice(-6)}`;
+  const merchantId = "veasna_reaksa@bkrt";
+  const merchantName = "REAKSA VEASNA";
 
-  try {
-    const khqr = new BakongKHQR();
-    const optional = {
-      currency: isKhr ? BakongData.currency.khr : BakongData.currency.usd,
-      amount: isKhr ? Math.round(numAmount) : Number(numAmount.toFixed(2)),
-      billNumber: billNum,
-      expirationTimestamp: Date.now() + 30 * 60 * 1000,
-    };
-    const info = new IndividualInfo(
-      "veasna_reaksa@bkrt",
-      "REAKSA VEASNA",
-      "Phnom Penh",
-      optional,
-    );
-    const res = khqr.generateIndividual(info);
-    if (res && res.data && res.data.qr) {
-      const qrStr = res.data.qr;
-      return {
-        order_id: orderId,
-        amount: numAmount,
-        currency: currency,
-        bill_number: billNum,
-        md5: res.data.md5 || calculateMd5(qrStr),
-        qr_string: qrStr,
-        deeplink: `https://bakong-deeplink.nbc.gov.kh/bakong/payment?qr=${encodeURIComponent(qrStr)}&appName=Alexandre+Luxe&appIconUrl=https%3A%2F%2Flegacy-store.onrender.com%2Ffavicon.svg&appDeepLinkCallback=https%3A%2F%2Flegacy-store.onrender.com`,
-        merchant_name: "REAKSA VEASNA",
-        merchant_id: "veasna_reaksa@bkrt",
-      };
-    }
-  } catch (err) {
-    console.warn("Client BakongKHQR generator error:", err);
-  }
-
-  // Pure fallback: Standard EMVCo & NBC KHQR Payload Structure
+  // 100% EMVCo & NBC Compliant KHQR Payload Construction
   const formattedAmt = isKhr
     ? String(Math.round(numAmount))
     : numAmount.toFixed(2);
   const now = Date.now();
   const nowMs = now.toString();
-  const merchantId = "veasna_reaksa@bkrt";
+  const expireMs = (now + 30 * 60 * 1000).toString();
+
   const tag29Val =
     "00" + String(merchantId.length).padStart(2, "0") + merchantId;
   const tag29 = "29" + String(tag29Val.length).padStart(2, "0") + tag29Val;
@@ -263,14 +278,14 @@ const generateClientKhqr = (orderId, amount, currency = "USD") => {
   const tag54 =
     "54" + String(formattedAmt.length).padStart(2, "0") + formattedAmt;
   const tag58 = "5802KH";
-  const tag59 = "5913REAKSA VEASNA";
+  const tag59 = "59" + String(merchantName.length).padStart(2, "0") + merchantName;
   const tag60 = "6010Phnom Penh";
 
   const subtag62_01 = "01" + String(billNum.length).padStart(2, "0") + billNum;
   const tag62 =
     "62" + String(subtag62_01.length).padStart(2, "0") + subtag62_01;
 
-  const expireMs = (now + 30 * 60 * 1000).toString();
+  // Tag 99: Official NBC standard with creation & expiration timestamps
   const subtag99_00 = "00" + String(nowMs.length).padStart(2, "0") + nowMs;
   const subtag99_01 = "01" + String(expireMs.length).padStart(2, "0") + expireMs;
   const tag99Val = subtag99_00 + subtag99_01;
@@ -311,7 +326,7 @@ const generateClientKhqr = (orderId, amount, currency = "USD") => {
     md5: calculateMd5(dynamicQrStr),
     qr_string: dynamicQrStr,
     deeplink: `https://bakong-deeplink.nbc.gov.kh/bakong/payment?qr=${encodeURIComponent(dynamicQrStr)}&appName=Alexandre+Luxe&appIconUrl=https%3A%2F%2Flegacy-store.onrender.com%2Ffavicon.svg&appDeepLinkCallback=https%3A%2F%2Flegacy-store.onrender.com`,
-    merchant_name: "REAKSA VEASNA",
+    merchant_name: merchantName,
     merchant_id: merchantId,
   };
 };
@@ -341,36 +356,56 @@ const CheckoutModal = ({
     if (clean.startsWith("4")) {
       return {
         name: "VISA",
-        bgGradient: "from-slate-900 via-blue-950 to-slate-950",
+        bgGradient: "from-slate-950 via-blue-950 to-neutral-950",
+        border: "border-blue-500/30",
         accent: "text-blue-400",
       };
     }
     if (/^5[1-5]|^2[2-7]/.test(clean)) {
       return {
         name: "MASTERCARD",
-        bgGradient: "from-neutral-900 via-amber-950 to-neutral-950",
+        bgGradient: "from-neutral-950 via-stone-900 to-red-950",
+        border: "border-amber-500/30",
         accent: "text-amber-400",
       };
     }
     if (/^3[47]/.test(clean)) {
       return {
         name: "AMEX",
-        bgGradient: "from-slate-900 via-emerald-950 to-neutral-950",
+        bgGradient: "from-neutral-950 via-emerald-950 to-slate-950",
+        border: "border-emerald-500/30",
         accent: "text-emerald-400",
       };
     }
     if (/^6(?:011|5)/.test(clean)) {
       return {
         name: "DISCOVER",
-        bgGradient: "from-neutral-900 via-orange-950 to-black",
+        bgGradient: "from-neutral-950 via-orange-950 to-neutral-950",
+        border: "border-orange-500/30",
         accent: "text-orange-400",
       };
     }
     return {
-      name: "LUXE CARD",
-      bgGradient: "from-neutral-950 via-neutral-900 to-black",
+      name: "LUXE BLACK",
+      bgGradient: "from-neutral-950 via-zinc-900 to-black",
+      border: "border-amber-500/30",
       accent: "text-amber-400",
     };
+  };
+
+  const formatCardDisplayNumber = (number) => {
+    if (!number) return "•••• •••• •••• ••••";
+    const clean = number.replace(/\s+/g, "");
+    let res = "";
+    for (let i = 0; i < 16; i++) {
+      if (i > 0 && i % 4 === 0) res += " ";
+      if (i < clean.length) {
+        res += clean[i];
+      } else {
+        res += "•";
+      }
+    }
+    return res;
   };
 
   const handleCardNumberChange = (e) => {
@@ -409,6 +444,7 @@ const CheckoutModal = ({
   const [polling, setPolling] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [qrStartTime, setQrStartTime] = useState(Date.now());
 
   // Dynamic Store Delivery Config & Selected Method
   const [deliverySettings, setDeliverySettings] = useState(() =>
@@ -459,6 +495,41 @@ const CheckoutModal = ({
   const totalAmount = Math.max(0, subtotal - promoDiscount + shippingFee);
   const khrAmount = Math.round(totalAmount * 4100);
 
+  // Client fallback KHQR
+  const liveKhqr = useMemo(() => {
+    return khqrData || generateClientKhqr(currentOrder?.id || Date.now(), totalAmount, selectedCurrency);
+  }, [khqrData, currentOrder?.id, totalAmount, selectedCurrency]);
+
+  // Reactive generation & sync with official backend KHQR
+  useEffect(() => {
+    let isCancelled = false;
+    if (open && selectedPaymentMethod === "bakong" && totalAmount > 0) {
+      setQrStartTime(Date.now());
+      const orderId = currentOrder?.id || Date.now();
+      const currentAmt = selectedCurrency === "KHR" ? khrAmount : totalAmount;
+
+      generateBakongKhqr(orderId, currentAmt, selectedCurrency)
+        .then((res) => {
+          if (!isCancelled && res?.data) {
+            setKhqrData(res.data);
+            setPolling(true);
+          }
+        })
+        .catch((err) => {
+          console.warn("Backend KHQR load warning, using resilient EMVCo client payload:", err);
+          if (!isCancelled) {
+            const fallback = generateClientKhqr(orderId, currentAmt, selectedCurrency);
+            setKhqrData(fallback);
+            setPolling(true);
+          }
+        });
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [open, selectedPaymentMethod, totalAmount, selectedCurrency, currentOrder?.id, khrAmount]);
+
   const handleSubmit = async (values) => {
     setLoading(true);
     try {
@@ -496,64 +567,42 @@ const CheckoutModal = ({
           const finalOrder = response.data?.data || response.data || response;
           setCurrentOrder(finalOrder);
 
-          // 2. Obtain real verified KHQR + NBC Deeplink directly from backend response
-          let realKhqr = response.data?.khqr;
-          if (!realKhqr || !realKhqr.qr_string) {
-            // Fallback: call dedicated Bakong generation endpoint with the real order ID
-            const apiRes = await generateBakongKhqr(
-              finalOrder.id,
-              totalAmount,
-              selectedCurrency,
-            );
-            realKhqr = apiRes?.data;
+          // 2. Check if payment was already verified on phone scan
+          const statusRes = await checkBakongPaymentStatus(
+            khqrData?.md5 || response.data?.khqr?.md5,
+            finalOrder.id,
+            false,
+            khqrData?.client_md5 || khqrData?.backend_md5,
+            Math.floor((Date.now() - (qrStartTime || Date.now())) / 1000)
+          );
+
+          if (statusRes && statusRes.paid) {
+            setLoading(false);
+            setPaymentSuccess(true);
+            setTimeout(() => {
+              handleBakongCompleteSuccess(finalOrder);
+            }, 1200);
+            return;
           }
 
+          // If not paid yet, update khqrData if returned from DB
+          let realKhqr = response.data?.khqr || khqrData;
           if (realKhqr && realKhqr.qr_string) {
             setKhqrData(realKhqr);
-          } else {
-            // Fallback client generator using the real finalOrder ID
-            const clientKhqr = generateClientKhqr(
-              finalOrder.id,
-              totalAmount,
-              selectedCurrency,
-            );
-            setKhqrData(clientKhqr);
           }
-
-          // 3. Open Bakong modal with TRUE, verified QR and Deeplink from frame 1
-          setBakongModalOpen(true);
           setPolling(true);
           setLoading(false);
+          notification.info({
+            message: "AWAITING BAKONG SCAN",
+            description: "Please scan the QR code above with ABA Mobile, Acleda or any bank app.",
+            placement: "bottomRight",
+            duration: 3,
+          });
         } catch (submitErr) {
           console.warn(
             "submitOrder error, initiating resilient local session:",
             submitErr,
           );
-          const tempOrderId = Date.now();
-          const fallbackOrder = {
-            id: tempOrderId,
-            order_number:
-              "LX-" +
-              Math.random().toString(36).substring(2, 10).toUpperCase(),
-            customer_name: values.fullName,
-            customer_email: values.email,
-            phone: values.phone,
-            shipping_address: values.address,
-            payment_method: "bakong",
-            total_amount: totalAmount,
-            status: "pending",
-            delivery_status: "pending",
-            items: orderPayload.items,
-          };
-          setCurrentOrder(fallbackOrder);
-          const clientKhqr = generateClientKhqr(
-            tempOrderId,
-            totalAmount,
-            selectedCurrency,
-          );
-          setKhqrData(clientKhqr);
-          setBakongModalOpen(true);
-          setPolling(true);
           setLoading(false);
         }
         return;
@@ -615,6 +664,7 @@ const CheckoutModal = ({
 
   const handleCurrencyChange = async (curr) => {
     setSelectedCurrency(curr);
+    setQrStartTime(Date.now());
     const orderId = currentOrder?.id || Date.now();
     const newAmount = curr === "KHR" ? khrAmount : totalAmount;
 
@@ -622,6 +672,7 @@ const CheckoutModal = ({
       const apiRes = await generateBakongKhqr(orderId, newAmount, curr);
       if (apiRes && apiRes.data) {
         setKhqrData(apiRes.data);
+        setPolling(true);
         return;
       }
     } catch (e) {
@@ -630,6 +681,7 @@ const CheckoutModal = ({
 
     const fallbackPayload = generateClientKhqr(orderId, newAmount, curr);
     setKhqrData(fallbackPayload);
+    setPolling(true);
   };
 
   // Real-time Bakong Payment Polling & Loading Verification Effect
@@ -640,17 +692,21 @@ const CheckoutModal = ({
     if (polling && khqrData?.md5) {
       intervalId = setInterval(async () => {
         pollCount++;
-        if (pollCount > 30) {
+        if (pollCount > 40) {
           clearInterval(intervalId);
           setPolling(false);
           return;
         }
         try {
+          const elapsedSec = Math.floor(
+            (Date.now() - (qrStartTime || Date.now())) / 1000,
+          );
           const res = await checkBakongPaymentStatus(
             khqrData.md5,
             currentOrder?.id,
             false,
             khqrData.client_md5 || khqrData.backend_md5,
+            elapsedSec,
           );
           if (res && res.paid) {
             setPolling(false);
@@ -660,14 +716,14 @@ const CheckoutModal = ({
               setPaymentSuccess(true); // Show green checkmark
               setTimeout(() => {
                 handleBakongCompleteSuccess();
-              }, 1500);
-            }, 1000);
+              }, 1200);
+            }, 800);
             return;
           }
         } catch (e) {
           // Keep polling silently
         }
-      }, 4000);
+      }, 3500);
 
       // Trigger Bakong status check when user returns to browser tab from bank app
       const handleTabReturn = async () => {
@@ -678,11 +734,15 @@ const CheckoutModal = ({
           !verifying
         ) {
           try {
+            const elapsedSec = Math.floor(
+              (Date.now() - (qrStartTime || Date.now())) / 1000,
+            );
             const res = await checkBakongPaymentStatus(
               khqrData.md5,
               currentOrder?.id,
               false,
               khqrData.client_md5 || khqrData.backend_md5,
+              elapsedSec,
             );
             if (res && res.paid) {
               setPolling(false);
@@ -692,8 +752,8 @@ const CheckoutModal = ({
                 setPaymentSuccess(true); // Show green checkmark
                 setTimeout(() => {
                   handleBakongCompleteSuccess();
-                }, 1500);
-              }, 1000);
+                }, 1200);
+              }, 800);
             }
           } catch (e) {}
         }
@@ -708,16 +768,62 @@ const CheckoutModal = ({
         document.removeEventListener("visibilitychange", handleTabReturn);
       };
     }
-  }, [polling, khqrData, currentOrder, paymentSuccess, verifying]);
+  }, [polling, khqrData, currentOrder, paymentSuccess, verifying, qrStartTime]);
 
-  const handleBakongCompleteSuccess = () => {
+  const handleBakongCompleteSuccess = async (completedOrder = null) => {
     setBakongModalOpen(false);
     setPolling(false);
     setPaymentSuccess(false);
     setVerifying(false);
+
+    let finalOrder = completedOrder || currentOrder;
+    if (!finalOrder) {
+      try {
+        const values = form.getFieldsValue();
+        const orderPayload = {
+          customer_name: values.fullName || currentUser?.name || "Client Atelier",
+          customer_email: values.email || currentUser?.email || "client@legacystore.com",
+          phone: values.phone || currentUser?.phone || "+855 12 345 678",
+          shipping_address: values.address || currentUser?.address || "Phnom Penh, Cambodia",
+          shipping_fee: shippingFee,
+          delivery_method: deliveryOption,
+          total_amount: totalAmount,
+          discount_amount: promoDiscount,
+          promo_code: appliedPromo?.code || null,
+          payment_method: "bakong",
+          currency: selectedCurrency,
+          items: cartItems.map((item) => ({
+            product_id: item.id ? (Number(item.id) || 1) : 1,
+            product_name: item.name || "Luxury Item",
+            price: Number(item.price) || 0.01,
+            quantity: item.quantity,
+            size: item.size || null,
+            color: item.color || null,
+          })),
+        };
+        const res = await submitOrder(orderPayload);
+        finalOrder = res.data?.data || res.data || res;
+      } catch (err) {
+        console.warn("Auto-order creation fallback on bakong payment success:", err);
+        finalOrder = {
+          id: Date.now(),
+          order_number: "LX-" + Math.random().toString(36).substring(2, 10).toUpperCase(),
+          customer_name: form.getFieldValue("fullName") || currentUser?.name || "Client Atelier",
+          customer_email: form.getFieldValue("email") || currentUser?.email || "client@legacystore.com",
+          phone: form.getFieldValue("phone") || currentUser?.phone || "+855 12 345 678",
+          shipping_address: form.getFieldValue("address") || currentUser?.address || "Phnom Penh, Cambodia",
+          payment_method: "bakong",
+          total_amount: totalAmount,
+          status: "processing",
+          delivery_status: "processing",
+          items: cartItems,
+        };
+      }
+    }
+
     form.resetFields();
-    if (currentOrder) {
-      onOrderSuccess(currentOrder);
+    if (finalOrder) {
+      onOrderSuccess(finalOrder);
     }
     notification.success({
       message: "DYNAMIC KHQR PAYMENT CONFIRMED",
@@ -816,412 +922,589 @@ const CheckoutModal = ({
         open={open}
         onCancel={onClose}
         footer={null}
-        width={680}
+        width={1040}
         centered
+        className="luxury-checkout-split-modal"
         title={
-          <div className="flex items-center space-x-2 border-b border-neutral-200 pb-3">
-            <LockOutlined style={{ fontSize: "18px" }} />
-            <span className="font-serif font-bold text-base sm:text-lg uppercase tracking-wider text-black">
-              SECURE CHECKOUT • LEGACY STORE
-            </span>
+          <div className="flex items-center justify-between border-b border-neutral-200 pb-3 pr-6">
+            <div className="flex items-center gap-2.5">
+              <span className="w-8 h-8 rounded-full bg-neutral-950 text-amber-400 flex items-center justify-center text-sm shadow-xs">
+                <LockOutlined />
+              </span>
+              <div>
+                <span className="font-serif font-black text-base sm:text-lg uppercase tracking-wider text-neutral-950 block leading-tight">
+                  SECURE ATELIER CHECKOUT
+                </span>
+                <span className="text-[10px] font-mono text-neutral-400 uppercase tracking-widest block">
+                  LEGACY STORE • PARIS
+                </span>
+              </div>
+            </div>
+            <div className="hidden sm:flex items-center gap-2 text-[10px] font-mono text-neutral-500 bg-neutral-100 px-3 py-1 rounded-full border border-neutral-200/80">
+              <SafetyCertificateOutlined className="text-emerald-600" />
+              <span>256-BIT ENCRYPTED</span>
+            </div>
           </div>
         }
         closeIcon={
-          <CloseOutlined style={{ fontSize: "18px", color: "#000" }} />
+          <CloseOutlined style={{ fontSize: "16px", color: "#000" }} />
         }
       >
-        <div className="pt-3">
-          {/* Order Summary Box */}
-          <div className="bg-neutral-50 p-3.5 rounded-xl border border-neutral-200/80 mb-4 space-y-2">
-            <div className="flex justify-between items-center text-xs font-bold text-neutral-600 uppercase tracking-wider font-mono">
-              <span>ORDER SUMMARY ({cartItems.length} ITEMS)</span>
-              <span className="text-black font-black">
-                TOTAL: ${totalAmount.toFixed(2)}
-              </span>
-            </div>
-            <div className="flex -space-x-2 overflow-hidden py-1">
-              {cartItems.map((item, idx) => (
-                <img
-                  key={idx}
-                  src={item.image_url}
-                  alt={item.name}
-                  className="inline-block h-10 w-10 rounded-full ring-2 ring-white object-cover"
-                />
-              ))}
-            </div>
-            <div className="pt-2 border-t border-neutral-200/80 flex flex-col gap-1 text-[11px] font-mono text-neutral-600">
-              <div className="flex justify-between items-center">
-                <span>
-                  Subtotal:{" "}
-                  <strong className="text-black">${subtotal.toFixed(2)}</strong>
-                </span>
-                <span>
-                  Delivery (
-                  {deliveryOption === "express"
-                    ? "Express Courier"
-                    : "Standard"}
-                  ):{" "}
-                  <strong
-                    className={
-                      shippingFee === 0
-                        ? "text-emerald-600 font-bold"
-                        : "text-black"
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+          initialValues={{ paymentMethod: "bakong" }}
+          className="pt-2"
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+            {/* ======================================================== */}
+            {/* LEFT SECTION (Col-span-7): Information, Shipping & Payment */}
+            {/* ======================================================== */}
+            <div className="lg:col-span-7 space-y-4">
+              {/* 1. Client Identity & Shipping Address */}
+              <div className="bg-white rounded-2xl border border-neutral-200/90 p-4 sm:p-5 shadow-2xs space-y-3.5">
+                <div className="flex items-center gap-2 border-b border-neutral-100 pb-2 text-xs font-mono font-bold uppercase tracking-wider text-neutral-900">
+                  <span className="w-5 h-5 rounded-full bg-neutral-950 text-white flex items-center justify-center text-[10px] font-mono font-bold">
+                    1
+                  </span>
+                  <span>CLIENT & SHIPPING DESTINATION</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Form.Item
+                    label={
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-neutral-700">
+                        Full Name
+                      </span>
                     }
+                    name="fullName"
+                    rules={[
+                      { required: true, message: "Please enter your full name" },
+                    ]}
+                    className="mb-0"
                   >
-                    {shippingFee === 0 ? "FREE" : `$${shippingFee.toFixed(2)}`}
-                  </strong>
-                </span>
+                    <Input
+                      placeholder="Jean Dupont"
+                      autoComplete="name"
+                      className="text-xs py-2 rounded-xl h-10 border-neutral-300 focus:border-black font-sans"
+                    />
+                  </Form.Item>
+
+                  <Form.Item
+                    label={
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-neutral-700">
+                        Email Address
+                      </span>
+                    }
+                    name="email"
+                    rules={[
+                      { required: true, message: "Please enter your email" },
+                      { type: "email", message: "Enter a valid email" },
+                    ]}
+                    className="mb-0"
+                  >
+                    <Input
+                      placeholder="client@legacystore.com"
+                      type="email"
+                      inputMode="email"
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      autoComplete="email"
+                      className="text-xs py-2 rounded-xl h-10 border-neutral-300 focus:border-black font-sans"
+                    />
+                  </Form.Item>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Form.Item
+                    label={
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-neutral-700">
+                        Phone Number (Courier Dispatch)
+                      </span>
+                    }
+                    name="phone"
+                    rules={[{ required: true, message: "Please enter phone number" }]}
+                    className="mb-0"
+                  >
+                    <Input
+                      placeholder="+855 12 345 678"
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      className="text-xs py-2 rounded-xl h-10 border-neutral-300 focus:border-black font-mono"
+                    />
+                  </Form.Item>
+
+                  <Form.Item
+                    label={
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-neutral-700">
+                        Shipping Address (Street, City)
+                      </span>
+                    }
+                    name="address"
+                    rules={[
+                      {
+                        required: true,
+                        message: "Please enter complete shipping address",
+                      },
+                    ]}
+                    className="mb-0"
+                  >
+                    <Input
+                      placeholder="75 Rue du Faubourg Saint-Honoré, Paris"
+                      autoComplete="street-address"
+                      className="text-xs py-2 rounded-xl h-10 border-neutral-300 focus:border-black font-sans"
+                    />
+                  </Form.Item>
+                </div>
               </div>
-              {appliedPromo && promoDiscount > 0 && (
-                <div className="flex justify-between items-center text-emerald-700 font-bold bg-emerald-50/70 px-2 py-1 rounded border border-emerald-200/60 mt-0.5">
-                  <span>🎉 PROMO CODE ({appliedPromo.code}):</span>
-                  <span>-${promoDiscount.toFixed(2)}</span>
-                </div>
-              )}
-              {appliedPromo && appliedPromo.isFreeShip && (
-                <div className="flex justify-between items-center text-emerald-700 font-bold bg-emerald-50/70 px-2 py-1 rounded border border-emerald-200/60 mt-0.5">
-                  <span>🎉 PROMO CODE ({appliedPromo.code}):</span>
-                  <span>FREE SHIPPING APPLIED</span>
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* Shipping & Customer Form */}
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleSubmit}
-            initialValues={{ paymentMethod: "bakong" }}
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-              <Form.Item
-                label={
-                  <span className="text-xs font-bold uppercase tracking-wider">
-                    Full Name
-                  </span>
-                }
-                name="fullName"
-                rules={[
-                  { required: true, message: "Please enter your full name" },
-                ]}
-              >
-                <Input
-                  placeholder="Jean Dupont"
-                  autoComplete="name"
-                  className="text-sm sm:text-xs py-2 sm:py-2.5 rounded-lg h-11 sm:h-10"
-                />
-              </Form.Item>
-
-              <Form.Item
-                label={
-                  <span className="text-xs font-bold uppercase tracking-wider">
-                    Email Address
-                  </span>
-                }
-                name="email"
-                rules={[
-                  { required: true, message: "Please enter your email" },
-                  { type: "email", message: "Enter a valid email" },
-                ]}
-              >
-                <Input
-                  placeholder="client@legacystore.com"
-                  type="email"
-                  inputMode="email"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  autoComplete="email"
-                  className="text-sm sm:text-xs py-2 sm:py-2.5 rounded-lg h-11 sm:h-10"
-                />
-              </Form.Item>
-            </div>
-
-            <Form.Item
-              label={
-                <span className="text-xs font-bold uppercase tracking-wider">
-                  Phone Number
-                </span>
-              }
-              name="phone"
-              rules={[{ required: true, message: "Please enter phone number" }]}
-            >
-              <Input
-                placeholder="+855 12 345 678"
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel"
-                className="text-sm sm:text-xs py-2 sm:py-2.5 rounded-lg h-11 sm:h-10"
-              />
-            </Form.Item>
-
-            <Form.Item
-              label={
-                <span className="text-xs font-bold uppercase tracking-wider">
-                  Shipping Address
-                </span>
-              }
-              name="address"
-              rules={[
-                {
-                  required: true,
-                  message: "Please enter complete shipping address",
-                },
-              ]}
-            >
-              <Input.TextArea
-                rows={2}
-                placeholder="75 Rue du Faubourg Saint-Honoré, 75008 Paris, France"
-                className="text-sm sm:text-xs p-2.5 rounded-lg"
-              />
-            </Form.Item>
-
-            {/* Delivery Method Selector */}
-            <Form.Item
-              label={
-                <div className="w-full flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-neutral-800">
-                    🚚 Select Delivery Speed / Shipping Method
-                  </span>
+              {/* 2. Delivery Speed & Method */}
+              <div className="bg-white rounded-2xl border border-neutral-200/90 p-4 sm:p-5 shadow-2xs space-y-3">
+                <div className="flex items-center justify-between border-b border-neutral-100 pb-2 text-xs font-mono font-bold uppercase tracking-wider text-neutral-900">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-neutral-950 text-white flex items-center justify-center text-[10px] font-mono font-bold">
+                      2
+                    </span>
+                    <span>DISPATCH SPEED</span>
+                  </div>
                   {isFreeShipping && deliveryOption === "standard" && (
-                    <span className="text-[10px] text-emerald-700 font-mono font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                      🎉 FREE STANDARD SHIPPING APPLIED
+                    <span className="text-[9px] text-emerald-700 font-mono font-bold bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 shadow-2xs">
+                      <CheckCircleOutlined className="text-emerald-600" /> FREE SHIPPING APPLIED
                     </span>
                   )}
                 </div>
-              }
-              className="mb-4"
-            >
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <div
-                  onClick={() => setDeliveryOption("standard")}
-                  className={`p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                    deliveryOption === "standard"
-                      ? "border-black bg-neutral-50 shadow-xs"
-                      : "border-neutral-200 hover:border-neutral-400 bg-white"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-extrabold uppercase text-black flex items-center gap-1.5">
-                      <Radio checked={deliveryOption === "standard"} />
-                      Standard Delivery
-                    </span>
-                    <span className="text-xs font-mono font-black text-black">
-                      {isFreeShipping ? (
-                        <span className="text-emerald-600 font-bold">FREE</span>
-                      ) : (
-                        `$${standardPrice.toFixed(2)}`
-                      )}
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-neutral-500 font-light m-0 pl-6">
-                    Standard 1-2 Days • Nationwide Shipping
-                  </p>
-                </div>
 
-                <div
-                  onClick={() => setDeliveryOption("express")}
-                  className={`p-3 rounded-xl border-2 cursor-pointer transition-all ${
-                    deliveryOption === "express"
-                      ? "border-amber-500 bg-amber-50/40 shadow-xs"
-                      : "border-neutral-200 hover:border-neutral-400 bg-white"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-extrabold uppercase text-black flex items-center gap-1.5">
-                      <Radio checked={deliveryOption === "express"} />⚡ VIP
-                      Express Courier
-                    </span>
-                    <span className="text-xs font-mono font-black text-amber-700">
-                      ${expressPrice.toFixed(2)}
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-neutral-500 font-light m-0 pl-6">
-                    1-2 Hours (Phnom Penh) • Priority Dispatch
-                  </p>
-                </div>
-              </div>
-            </Form.Item>
-
-            <Form.Item
-              label={
-                <span className="text-xs font-bold uppercase tracking-wider">
-                  Select Payment Gateway
-                </span>
-              }
-              name="paymentMethod"
-            >
-              <Radio.Group
-                onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-                className="w-full flex flex-col space-y-2.5"
-              >
-                <div
-                  onClick={() => {
-                    setSelectedPaymentMethod("bakong");
-                    form.setFieldsValue({ paymentMethod: "bakong" });
-                  }}
-                  className={`p-3.5 border-2 rounded-xl flex items-center justify-between cursor-pointer transition-all ${
-                    selectedPaymentMethod === "bakong"
-                      ? "border-red-500 bg-red-50/70 shadow-xs"
-                      : "border-neutral-200 hover:border-red-300 bg-white"
-                  }`}
-                >
-                  <Radio
-                    value="bakong"
-                    className="font-extrabold text-xs text-red-950"
-                  >
-                    🔴 Bakong Dynamic KHQR (ABA Bank, Acleda, Wing, All Banks)
-                  </Radio>
-                  <span className="text-[9px] font-mono font-black text-red-700 bg-red-100/90 border border-red-200 px-2 py-0.5 rounded-full tracking-widest uppercase">
-                    ⚡ DYNAMIC AMOUNT KHQR
-                  </span>
-                </div>
-
-                <div
-                  onClick={() => {
-                    setSelectedPaymentMethod("card");
-                    form.setFieldsValue({ paymentMethod: "card" });
-                  }}
-                  className={`p-3.5 border-2 rounded-xl flex items-center justify-between cursor-pointer transition-all ${
-                    selectedPaymentMethod === "card"
-                      ? "border-black bg-neutral-900 text-white shadow-md"
-                      : "border-neutral-200 hover:border-black bg-white"
-                  }`}
-                >
-                  <Radio
-                    value="card"
-                    className={`font-bold text-xs ${selectedPaymentMethod === "card" ? "text-white" : "text-black"}`}
-                  >
-                    💳 Credit / Debit Card (Visa, Mastercard, Amex, JCB)
-                  </Radio>
-                  <span
-                    className={`text-[10px] font-mono font-bold ${
-                      selectedPaymentMethod === "card"
-                        ? "text-amber-400"
-                        : "text-neutral-400"
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div
+                    onClick={() => setDeliveryOption("standard")}
+                    className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
+                      deliveryOption === "standard"
+                        ? "border-neutral-950 bg-neutral-50 shadow-xs"
+                        : "border-neutral-200 hover:border-neutral-400 bg-white"
                     }`}
                   >
-                    🔒 256-BIT SECURE VIP
-                  </span>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold uppercase text-neutral-900 flex items-center gap-1.5 font-mono">
+                        <Radio checked={deliveryOption === "standard"} />
+                        Standard Delivery
+                      </span>
+                      <span className="text-xs font-mono font-black text-neutral-950">
+                        {isFreeShipping ? (
+                          <span className="text-emerald-600 font-bold">FREE</span>
+                        ) : (
+                          `$${standardPrice.toFixed(2)}`
+                        )}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-neutral-500 font-sans m-0 pl-6">
+                      Standard 1-2 Days • Nationwide Shipping
+                    </p>
+                  </div>
+
+                  <div
+                    onClick={() => setDeliveryOption("express")}
+                    className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all ${
+                      deliveryOption === "express"
+                        ? "border-amber-500 bg-amber-50/40 shadow-xs"
+                        : "border-neutral-200 hover:border-neutral-400 bg-white"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold uppercase text-neutral-900 flex items-center gap-1.5 font-mono">
+                        <Radio checked={deliveryOption === "express"} />
+                        <ThunderboltOutlined className="text-amber-500" />
+                        VIP Express
+                      </span>
+                      <span className="text-xs font-mono font-black text-amber-700">
+                        ${expressPrice.toFixed(2)}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-neutral-500 font-sans m-0 pl-6">
+                      1-2 Hours (Phnom Penh) • Priority
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Payment Gateway Selection - Minimalist Luxury */}
+              <div className="bg-white rounded-2xl border border-neutral-200/90 p-4 sm:p-5 shadow-2xs space-y-3">
+                <div className="flex items-center justify-between border-b border-neutral-100 pb-2 text-xs font-mono font-bold uppercase tracking-wider text-neutral-900">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-neutral-950 text-white flex items-center justify-center text-[10px] font-mono font-bold">
+                      3
+                    </span>
+                    <span>PAYMENT METHOD</span>
+                  </div>
                 </div>
 
-                {/* Expanded Interactive Card Section when card payment is active */}
-                {selectedPaymentMethod === "card" && (
-                  <div className="p-4 bg-neutral-950 rounded-2xl border border-neutral-800 space-y-4 shadow-xl animate-fade-in">
-                    {/* Visual Card Component */}
-                    <div
-                      className={`w-full aspect-[1.586/1] max-w-[340px] mx-auto rounded-2xl p-5 text-white shadow-2xl relative overflow-hidden border border-amber-500/40 bg-gradient-to-br ${getCardBrandInfo(cardDetails.number).bgGradient}`}
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none" />
-                      <div className="absolute -right-6 -bottom-6 opacity-10 font-serif text-7xl font-black italic tracking-tighter select-none pointer-events-none">
-                        LEGACY
-                      </div>
+                {/* Form field sync */}
+                <Form.Item name="paymentMethod" className="hidden">
+                  <Input type="hidden" />
+                </Form.Item>
 
-                      {/* Header */}
-                      <div className="flex justify-between items-center relative z-10">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-serif font-black tracking-widest text-xs uppercase text-amber-400">
-                            ALEXANDRE LUXE
-                          </span>
-                          <span className="text-[7px] font-mono text-neutral-300 bg-white/10 px-1.5 py-0.5 rounded border border-white/10">
-                            VIP ATELIER
-                          </span>
-                        </div>
-                        <span className="font-mono font-black text-xs tracking-wider text-amber-300 uppercase bg-black/40 px-2.5 py-1 rounded-md border border-amber-500/30">
-                          {getCardBrandInfo(cardDetails.number).name}
+                {/* Minimal 3-Option Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  {/* Option 1: Bakong KHQR */}
+                  <div
+                    onClick={() => {
+                      setSelectedPaymentMethod("bakong");
+                      form.setFieldsValue({ paymentMethod: "bakong" });
+                    }}
+                    className={`p-3 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between ${
+                      selectedPaymentMethod === "bakong"
+                        ? "border-neutral-950 bg-neutral-50 shadow-xs"
+                        : "border-neutral-200 hover:border-neutral-400 bg-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-6 h-6 rounded-full bg-red-600 text-white flex items-center justify-center font-mono font-black text-[9px] shadow-2xs shrink-0">
+                        KH
+                      </span>
+                      <div>
+                        <span className="font-mono font-bold text-xs text-neutral-950 block leading-tight">
+                          Bakong KHQR
                         </span>
-                      </div>
-
-                      {/* Chip */}
-                      <div className="mt-4 relative z-10 flex items-center justify-between">
-                        <div className="w-10 h-7 rounded-md bg-gradient-to-r from-amber-300 via-amber-400 to-amber-200 border border-amber-500/50 shadow-inner flex items-center justify-center">
-                          <div className="w-full h-[1px] bg-amber-600/40" />
-                        </div>
-                        <span className="text-[10px] font-mono text-neutral-400 uppercase tracking-widest">
-                          WORLD BLACK VIP
+                        <span className="text-[10px] font-mono text-neutral-400 block">
+                          ABA & Banks
                         </span>
-                      </div>
-
-                      {/* Card Number */}
-                      <div className="mt-3 relative z-10 font-mono text-sm sm:text-base tracking-[0.18em] text-white font-extrabold drop-shadow">
-                        {cardDetails.number || "•••• •••• •••• ••••"}
-                      </div>
-
-                      {/* Bottom row */}
-                      <div className="mt-4 flex justify-between items-end relative z-10 font-mono text-[11px]">
-                        <div className="min-w-0 pr-2">
-                          <span className="text-[8px] text-neutral-400 uppercase tracking-widest block">
-                            CARDHOLDER
-                          </span>
-                          <span className="font-bold text-white uppercase tracking-wider block truncate max-w-[170px]">
-                            {cardDetails.name || "VALUED CLIENT"}
-                          </span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-[8px] text-neutral-400 uppercase tracking-widest block">
-                            EXPIRES
-                          </span>
-                          <span className="font-bold text-amber-300 tracking-wider">
-                            {cardDetails.expiry || "MM/YY"}
-                          </span>
-                        </div>
-                        <div className="text-right pl-2">
-                          <span className="text-[8px] text-neutral-400 uppercase tracking-widest block">
-                            CVC
-                          </span>
-                          <span className="font-bold text-neutral-300 tracking-wider">
-                            {cardDetails.cvc ? "•••" : "•••"}
-                          </span>
-                        </div>
                       </div>
                     </div>
+                    <Radio checked={selectedPaymentMethod === "bakong"} />
+                  </div>
 
-                    {/* Form Inputs */}
-                    <div className="space-y-3 pt-1">
+                  {/* Option 2: Credit Card */}
+                  <div
+                    onClick={() => {
+                      setSelectedPaymentMethod("card");
+                      form.setFieldsValue({ paymentMethod: "card" });
+                    }}
+                    className={`p-3 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between ${
+                      selectedPaymentMethod === "card"
+                        ? "border-neutral-950 bg-neutral-50 shadow-xs"
+                        : "border-neutral-200 hover:border-neutral-400 bg-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-6 h-6 rounded-full bg-neutral-100 border border-neutral-200 text-neutral-800 flex items-center justify-center text-xs shrink-0">
+                        <CreditCardOutlined />
+                      </span>
+                      <div>
+                        <span className="font-mono font-bold text-xs text-neutral-950 block leading-tight">
+                          Credit Card
+                        </span>
+                        <span className="text-[10px] font-mono text-neutral-400 block">
+                          Visa, Master
+                        </span>
+                      </div>
+                    </div>
+                    <Radio checked={selectedPaymentMethod === "card"} />
+                  </div>
+
+                  {/* Option 3: Cash on Delivery */}
+                  <div
+                    onClick={() => {
+                      setSelectedPaymentMethod("cod");
+                      form.setFieldsValue({ paymentMethod: "cod" });
+                    }}
+                    className={`p-3 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between ${
+                      selectedPaymentMethod === "cod"
+                        ? "border-neutral-950 bg-neutral-50 shadow-xs"
+                        : "border-neutral-200 hover:border-neutral-400 bg-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-6 h-6 rounded-full bg-neutral-100 border border-neutral-200 text-neutral-800 flex items-center justify-center text-xs shrink-0">
+                        <CarOutlined />
+                      </span>
+                      <div>
+                        <span className="font-mono font-bold text-xs text-neutral-950 block leading-tight">
+                          Cash on Delivery
+                        </span>
+                        <span className="text-[10px] font-mono text-neutral-400 block">
+                          Pay at door
+                        </span>
+                      </div>
+                    </div>
+                    <Radio checked={selectedPaymentMethod === "cod"} />
+                  </div>
+                </div>
+
+                {/* Minimalist Sub-Panels (Little Text, High Clarity) */}
+
+                {/* 1. BAKONG: Clean Inline Live QR Code */}
+                {selectedPaymentMethod === "bakong" && (
+                  <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/90 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in">
+                    {/* QR Code Canvas */}
+                    <div className="flex flex-col items-center shrink-0">
+                      <div className="relative p-2.5 bg-white rounded-xl border border-neutral-200 shadow-2xs flex items-center justify-center min-w-[140px] min-h-[140px]">
+                        {paymentSuccess ? (
+                          <div className="w-[130px] h-[130px] flex flex-col items-center justify-center bg-emerald-50 rounded-lg space-y-1.5 text-emerald-600">
+                            <CheckCircleOutlined className="text-4xl text-emerald-600 animate-bounce" />
+                            <span className="font-mono font-bold text-[10px] uppercase tracking-wider text-emerald-800 text-center">
+                              PAID & CONFIRMED
+                            </span>
+                          </div>
+                        ) : verifying ? (
+                          <div className="w-[130px] h-[130px] flex flex-col items-center justify-center bg-amber-50 rounded-lg space-y-2 text-amber-600">
+                            <SyncOutlined spin className="text-3xl text-amber-600" />
+                            <span className="font-mono font-bold text-[9px] uppercase tracking-wider text-amber-900 text-center px-1">
+                              Verifying Payment...
+                            </span>
+                          </div>
+                        ) : (
+                          <QRCode
+                            value={khqrData?.qr_string || liveKhqr.qr_string}
+                            size={130}
+                            bordered={false}
+                          />
+                        )}
+                      </div>
+
+                      {/* Dynamic status radar directly under QR */}
+                      {verifying ? (
+                        <span className="text-[10px] font-mono font-bold text-amber-700 mt-1.5 flex items-center gap-1.5 animate-pulse">
+                          <SyncOutlined spin className="text-amber-600" />
+                          <span>Verifying payout...</span>
+                        </span>
+                      ) : paymentSuccess ? (
+                        <span className="text-[10px] font-mono font-bold text-emerald-700 mt-1.5 flex items-center gap-1">
+                          <CheckCircleOutlined className="text-emerald-600" />
+                          <span>Payment Verified!</span>
+                        </span>
+                      ) : polling ? (
+                        <span className="text-[10px] font-mono font-bold text-emerald-700 mt-1.5 flex items-center gap-1.5 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 shadow-2xs">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                          </span>
+                          <span>Scanning Bakong Network...</span>
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-mono text-neutral-400 mt-1.5 flex items-center gap-1">
+                          <QrcodeOutlined className="text-red-600" />
+                          <span>Scan with bank app</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Amount, Currency Toggle & Info */}
+                    <div className="flex-1 w-full flex flex-col justify-between items-center sm:items-start space-y-2 text-center sm:text-left">
+                      {/* Currency Toggle */}
+                      <div className="inline-flex items-center bg-white border border-neutral-300 p-0.5 rounded-xl shadow-2xs">
+                        <button
+                          type="button"
+                          onClick={() => handleCurrencyChange("USD")}
+                          className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                            selectedCurrency === "USD"
+                              ? "bg-neutral-950 text-white shadow-xs"
+                              : "text-neutral-600 hover:text-black"
+                          }`}
+                        >
+                          $ USD
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCurrencyChange("KHR")}
+                          className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                            selectedCurrency === "KHR"
+                              ? "bg-red-600 text-white shadow-xs"
+                              : "text-neutral-600 hover:text-black"
+                          }`}
+                        >
+                          ៛ KHR
+                        </button>
+                      </div>
+
+                      {/* Prominent Amount */}
+                      <div>
+                        <span className="text-2xl sm:text-3xl font-serif font-black text-neutral-950 block leading-tight">
+                          {selectedCurrency === "KHR"
+                            ? `${khrAmount.toLocaleString()} ៛`
+                            : `$${totalAmount.toFixed(2)}`}
+                        </span>
+                        <span className="text-[10px] font-mono text-neutral-500 block mt-0.5">
+                          {khqrData?.merchant_name || "REAKSA VEASNA"} • {khqrData?.merchant_id || "veasna_reaksa@bkrt"}
+                        </span>
+                      </div>
+
+                      {/* Mobile DeepLink for mobile browser users */}
+                      <a
+                        href={khqrData?.deeplink || liveKhqr.deeplink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex sm:hidden items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-[10px] font-mono font-bold uppercase tracking-wider shadow-2xs"
+                      >
+                        <MobileOutlined /> Tap to Pay in Bank App
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. CARD: Realistic Physical Luxury Card */}
+                {selectedPaymentMethod === "card" && (
+                  <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/90 space-y-4 animate-fade-in">
+                    {/* Realistic Physical Card Component */}
+                    {(() => {
+                      const brand = getCardBrandInfo(cardDetails.number);
+                      return (
+                        <div
+                          className={`w-full max-w-[340px] sm:max-w-[350px] mx-auto aspect-[1.586/1] rounded-2xl p-4 sm:p-5 text-white shadow-2xl relative overflow-hidden transition-all duration-500 select-none border ${brand.border} bg-gradient-to-br ${brand.bgGradient}`}
+                        >
+                          {/* Ambient Diagonal Gloss & Texture Overlays */}
+                          <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/[0.08] to-transparent pointer-events-none rounded-2xl" />
+                          <div className="absolute inset-0 bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:12px_12px] pointer-events-none opacity-60" />
+
+                          {/* Faint Watermark Emblem */}
+                          <div className="absolute -right-4 -bottom-6 opacity-[0.06] font-serif text-7xl font-black italic tracking-tighter select-none pointer-events-none text-white">
+                            LEGACY
+                          </div>
+
+                          {/* Top Row: Issuer & Contactless Wave + Brand */}
+                          <div className="flex justify-between items-center relative z-10">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-serif font-black tracking-widest text-[11px] sm:text-xs uppercase text-amber-300 drop-shadow">
+                                LEGACY ATELIER
+                              </span>
+                              <span className="text-[7px] font-mono text-neutral-300 bg-white/10 px-1.5 py-0.5 rounded border border-white/10 uppercase tracking-wider">
+                                WORLD VIP
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              {/* Contactless Wave Indicator */}
+                              <svg
+                                className="w-3.5 h-3.5 text-white/70"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                              >
+                                <path d="M8.5 16.5a5 5 0 0 1 0-7" />
+                                <path d="M12 19a8.5 8.5 0 0 0 0-14" />
+                                <path d="M15.5 21.5a12 12 0 0 0 0-19" />
+                              </svg>
+
+                              {/* Brand Badge */}
+                              <span className="font-mono font-black text-[10px] tracking-wider text-white uppercase bg-black/50 px-2 py-0.5 rounded-md border border-white/20 shadow-xs">
+                                {brand.name}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Middle Row: Gold EMV Microchip & Hologram */}
+                          <div className="mt-3.5 sm:mt-4 relative z-10 flex items-center justify-between">
+                            {/* Realistic Gold EMV Microchip with Circuit Etching */}
+                            <div className="relative w-10 sm:w-11 h-7 sm:h-8 rounded-md bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 shadow-md p-0.5 border border-amber-600/50 flex flex-col justify-between overflow-hidden">
+                              <div className="flex justify-between h-2 sm:h-2.5">
+                                <div className="w-3.5 sm:w-4 h-full border-r border-b border-amber-800/40 rounded-tl-sm" />
+                                <div className="w-3.5 sm:w-4 h-full border-l border-b border-amber-800/40 rounded-tr-sm" />
+                              </div>
+                              <div className="w-full h-[1px] bg-amber-800/40" />
+                              <div className="flex justify-between h-2 sm:h-2.5">
+                                <div className="w-3.5 sm:w-4 h-full border-r border-t border-amber-800/40 rounded-bl-sm" />
+                                <div className="w-3.5 sm:w-4 h-full border-l border-t border-amber-800/40 rounded-br-sm" />
+                              </div>
+                            </div>
+
+                            {/* Brand Emblem / Holographic Foil */}
+                            <div className="flex items-center">
+                              {brand.name === "MASTERCARD" ? (
+                                <div className="flex -space-x-2">
+                                  <div className="w-6 h-6 rounded-full bg-red-600/90 shadow-sm" />
+                                  <div className="w-6 h-6 rounded-full bg-amber-500/90 shadow-sm mix-blend-screen" />
+                                </div>
+                              ) : brand.name === "VISA" ? (
+                                <span className="font-sans font-black italic text-lg tracking-wider text-white drop-shadow">
+                                  VISA
+                                </span>
+                              ) : brand.name === "AMEX" ? (
+                                <span className="font-serif font-black text-xs tracking-widest text-emerald-300 border border-emerald-400/40 px-1.5 py-0.5 rounded">
+                                  AMEX
+                                </span>
+                              ) : (
+                                <div className="w-7 h-5 rounded bg-gradient-to-tr from-cyan-400/25 via-fuchsia-400/25 to-amber-300/30 border border-white/30 backdrop-blur-xs flex items-center justify-center text-[7px] font-mono text-white/90 font-bold tracking-tighter">
+                                  LUXE
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Card Number Row (Monospace Embossed Look) */}
+                          <div className="mt-3 font-mono text-sm sm:text-base tracking-[0.2em] text-white font-extrabold drop-shadow-[0_2px_4px_rgba(0,0,0,0.85)] truncate">
+                            {formatCardDisplayNumber(cardDetails.number)}
+                          </div>
+
+                          {/* Bottom Row: Cardholder, Expiry, CVC */}
+                          <div className="mt-3 sm:mt-4 flex justify-between items-end relative z-10 font-mono text-white">
+                            <div className="min-w-0 pr-2">
+                              <span className="text-[7.5px] text-neutral-400 uppercase tracking-widest block font-bold leading-tight">
+                                CARDHOLDER
+                              </span>
+                              <span className="font-bold text-[11px] sm:text-xs text-white uppercase tracking-wider block truncate max-w-[150px] sm:max-w-[170px] drop-shadow-sm">
+                                {cardDetails.name || "VALUED CLIENT"}
+                              </span>
+                            </div>
+
+                            <div className="text-right px-2 shrink-0">
+                              <span className="text-[7.5px] text-neutral-400 uppercase tracking-widest block font-bold leading-tight">
+                                EXPIRES
+                              </span>
+                              <span className="font-bold text-[11px] sm:text-xs text-amber-300 tracking-wider block drop-shadow-sm">
+                                {cardDetails.expiry || "MM/YY"}
+                              </span>
+                            </div>
+
+                            <div className="text-right pl-2 shrink-0">
+                              <span className="text-[7.5px] text-neutral-400 uppercase tracking-widest block font-bold leading-tight">
+                                CVC
+                              </span>
+                              <span className="font-bold text-[11px] sm:text-xs text-neutral-300 tracking-widest block drop-shadow-sm">
+                                {cardDetails.cvc ? "•••" : "•••"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Clean Input Form Fields Underneath */}
+                    <div className="space-y-2.5 pt-1">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         <Form.Item
                           label={
-                            <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-wider">
+                            <span className="text-[10px] font-mono font-bold uppercase text-neutral-700">
                               Cardholder Name
                             </span>
                           }
                           name="cardName"
                           rules={
                             selectedPaymentMethod === "card"
-                              ? [
-                                  {
-                                    required: true,
-                                    message: "Enter cardholder name",
-                                  },
-                                ]
+                              ? [{ required: true, message: "Required" }]
                               : []
                           }
                           className="mb-0"
                         >
                           <Input
-                            placeholder="CARDHOLDER NAME"
+                            placeholder="Name on card"
                             value={cardDetails.name}
-                            autoComplete="cc-name"
                             onChange={handleCardNameChange}
-                            className="text-sm sm:text-xs bg-neutral-900 border-neutral-800 text-white placeholder-neutral-600 focus:border-amber-500 uppercase font-mono py-2 sm:py-2 h-11 sm:h-9.5 rounded-lg"
+                            className="text-xs bg-white border-neutral-300 focus:border-black font-mono h-9.5 rounded-lg"
                           />
                         </Form.Item>
 
                         <Form.Item
                           label={
-                            <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-wider">
+                            <span className="text-[10px] font-mono font-bold uppercase text-neutral-700">
                               Card Number
                             </span>
                           }
                           name="cardNumber"
                           rules={
                             selectedPaymentMethod === "card"
-                              ? [
-                                  {
-                                    required: true,
-                                    message: "Enter 16-digit card number",
-                                  },
-                                ]
+                              ? [{ required: true, message: "Required" }]
                               : []
                           }
                           className="mb-0"
@@ -1230,15 +1513,14 @@ const CheckoutModal = ({
                             placeholder="4532 1234 5678 9010"
                             maxLength={19}
                             inputMode="numeric"
-                            autoComplete="cc-number"
                             value={cardDetails.number}
                             onChange={handleCardNumberChange}
                             suffix={
-                              <span className="text-[9px] font-mono font-black text-amber-400">
+                              <span className="text-[9px] font-mono font-bold text-neutral-600">
                                 {getCardBrandInfo(cardDetails.number).name}
                               </span>
                             }
-                            className="text-sm sm:text-xs bg-neutral-900 border-neutral-800 text-white placeholder-neutral-600 focus:border-amber-500 font-mono py-2 sm:py-2 h-11 sm:h-9.5 rounded-lg"
+                            className="text-xs bg-white border-neutral-300 focus:border-black font-mono h-9.5 rounded-lg"
                           />
                         </Form.Item>
                       </div>
@@ -1246,97 +1528,236 @@ const CheckoutModal = ({
                       <div className="grid grid-cols-2 gap-2.5">
                         <Form.Item
                           label={
-                            <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-wider">
+                            <span className="text-[10px] font-mono font-bold uppercase text-neutral-700">
                               Expiry Date
                             </span>
                           }
                           name="cardExpiry"
                           rules={
                             selectedPaymentMethod === "card"
-                              ? [{ required: true, message: "Enter MM/YY" }]
+                              ? [{ required: true, message: "Required" }]
                               : []
                           }
                           className="mb-0"
                         >
                           <Input
-                            placeholder="12/28"
+                            placeholder="MM/YY"
                             maxLength={5}
-                            inputMode="numeric"
-                            autoComplete="cc-exp"
                             value={cardDetails.expiry}
                             onChange={handleCardExpiryChange}
-                            className="text-sm sm:text-xs bg-neutral-900 border-neutral-800 text-white placeholder-neutral-600 focus:border-amber-500 font-mono py-2 sm:py-2 h-11 sm:h-9.5 rounded-lg"
+                            className="text-xs bg-white border-neutral-300 focus:border-black font-mono h-9.5 rounded-lg"
                           />
                         </Form.Item>
 
                         <Form.Item
                           label={
-                            <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-wider">
-                              CVC / CVV
+                            <span className="text-[10px] font-mono font-bold uppercase text-neutral-700">
+                              CVC
                             </span>
                           }
                           name="cardCvc"
                           rules={
                             selectedPaymentMethod === "card"
-                              ? [{ required: true, message: "Enter CVC" }]
+                              ? [{ required: true, message: "Required" }]
                               : []
                           }
                           className="mb-0"
                         >
                           <Input.Password
-                            placeholder="123"
+                            placeholder="CVC"
                             maxLength={4}
-                            inputMode="numeric"
-                            autoComplete="cc-csc"
                             value={cardDetails.cvc}
                             onChange={handleCardCvcChange}
-                            className="text-sm sm:text-xs bg-neutral-900 border-neutral-800 text-white placeholder-neutral-600 focus:border-amber-500 font-mono py-2 sm:py-2 h-11 sm:h-9.5 rounded-lg"
+                            className="text-xs bg-white border-neutral-300 focus:border-black font-mono h-9.5 rounded-lg"
                           />
                         </Form.Item>
+                      </div>
+
+                      {/* Security Footnote */}
+                      <div className="flex items-center justify-between text-[10px] font-mono text-neutral-400 pt-1.5 border-t border-neutral-200/80">
+                        <span className="flex items-center gap-1.5">
+                          <LockOutlined className="text-neutral-500" /> 256-Bit SSL Encrypted
+                        </span>
+                        <span>Zero Card Stored</span>
                       </div>
                     </div>
                   </div>
                 )}
 
-                <div
-                  onClick={() => {
-                    setSelectedPaymentMethod("cod");
-                    form.setFieldsValue({ paymentMethod: "cod" });
-                  }}
-                  className={`p-3.5 border-2 rounded-xl flex items-center justify-between cursor-pointer transition-all ${
-                    selectedPaymentMethod === "cod"
-                      ? "border-black bg-neutral-50 shadow-xs"
-                      : "border-neutral-200 hover:border-black bg-white"
-                  }`}
+                {/* 3. CASH ON DELIVERY: Simple 1-Line Reassurance */}
+                {selectedPaymentMethod === "cod" && (
+                  <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/90 flex items-center gap-2 text-xs font-mono text-neutral-700 animate-fade-in">
+                    <CheckCircleOutlined className="text-emerald-600 text-sm shrink-0" />
+                    <span>Pay with cash or scan KHQR with the courier upon delivery.</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons: Cancel + Confirm Order CTA */}
+              <div className="pt-2 flex items-center gap-3">
+                <Button
+                  onClick={onClose}
+                  className="h-12 px-5 rounded-xl border border-neutral-300 hover:border-black font-mono text-xs font-bold uppercase tracking-wider text-neutral-700 hover:text-black cursor-pointer shadow-2xs"
                 >
-                  <Radio value="cod" className="font-bold text-xs text-black">
-                    Cash on Delivery (COD)
-                  </Radio>
-                  <span className="text-[10px] text-neutral-400 font-mono font-bold">
-                    📦 PAY ON HANDOVER
+                  CANCEL
+                </Button>
+
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={loading}
+                  className="flex-1 h-12 rounded-xl bg-neutral-950 hover:bg-black text-white hover:text-amber-300 font-mono font-bold text-xs tracking-widest uppercase flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98] cursor-pointer border border-neutral-950"
+                >
+                  <ThunderboltOutlined className="text-amber-400 text-xs" />
+                  <span>CONFIRM ORDER — ${totalAmount.toFixed(2)}</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* ======================================================== */}
+            {/* RIGHT SECTION (Col-span-5): Curated Order Review & Totals */}
+            {/* ======================================================== */}
+            <div className="lg:col-span-5 lg:sticky lg:top-2 bg-neutral-50/90 rounded-2xl p-4 sm:p-5 border border-neutral-200/80 flex flex-col justify-between space-y-4 self-start">
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-neutral-200">
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-neutral-900 flex items-center gap-2">
+                  <ShoppingOutlined className="text-neutral-700" />
+                  <span>ORDER SUMMARY ({cartItems.length} {cartItems.length === 1 ? "PIECE" : "PIECES"})</span>
+                </span>
+                <span className="text-[10px] font-mono text-neutral-400 uppercase tracking-widest">
+                  ATELIER
+                </span>
+              </div>
+
+              {/* Curated Product Pieces List */}
+              <div className="space-y-2.5 max-h-64 sm:max-h-72 overflow-y-auto pr-1">
+                {cartItems.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-3 p-2 rounded-xl bg-white border border-neutral-200/70 shadow-2xs"
+                  >
+                    <div className="relative w-12 h-14 rounded-lg overflow-hidden bg-neutral-100 shrink-0 border border-neutral-200">
+                      <img
+                        src={item.image_url}
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                      />
+                      <span className="absolute -top-1 -right-1 bg-neutral-950 text-white text-[9px] font-mono font-black w-4 h-4 rounded-full flex items-center justify-center shadow-xs">
+                        {item.quantity}
+                      </span>
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <span className="text-xs font-serif font-bold text-neutral-950 block truncate uppercase leading-tight">
+                        {item.name}
+                      </span>
+                      <div className="flex items-center gap-1.5 mt-1 text-[10px] font-mono text-neutral-500">
+                        {item.size && (
+                          <span className="bg-neutral-100 px-1.5 py-0.2 rounded border border-neutral-200 text-neutral-800 font-semibold">
+                            {item.size}
+                          </span>
+                        )}
+                        {item.color && (
+                          <span className="capitalize">{item.color}</span>
+                        )}
+                        <span>•</span>
+                        <span>Qty {item.quantity}</span>
+                      </div>
+                    </div>
+
+                    <span className="text-xs font-mono font-black text-neutral-950 shrink-0">
+                      ${(Number(item.price || 0) * (item.quantity || 1)).toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Promo Code Notification */}
+              {appliedPromo && (
+                <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-mono flex items-center justify-between shadow-2xs">
+                  <span className="flex items-center gap-1.5 font-bold">
+                    <TagOutlined className="text-emerald-600" />
+                    <span>PROMO CODE ({appliedPromo.code}):</span>
+                  </span>
+                  <span className="font-black">
+                    {promoDiscount > 0
+                      ? `-$${promoDiscount.toFixed(2)}`
+                      : "FREE SHIPPING APPLIED"}
                   </span>
                 </div>
-              </Radio.Group>
-            </Form.Item>
+              )}
 
-            <div className="pt-3 border-t border-neutral-200 flex justify-end gap-2.5">
-              <Button
-                onClick={onClose}
-                className="text-xs font-bold uppercase h-10 px-4"
-              >
-                CANCEL
-              </Button>
-              <Button
-                type="primary"
-                htmlType="submit"
-                loading={loading}
-                className="bg-black hover:bg-neutral-800 text-white font-extrabold text-xs tracking-widest uppercase h-10 px-6 rounded-lg shadow-md border-none"
-              >
-                PLACE ORDER - ${totalAmount.toFixed(2)}
-              </Button>
+              {/* Financial Calculation Breakdown */}
+              <div className="pt-3 border-t border-neutral-200 space-y-2 text-xs font-mono text-neutral-600">
+                <div className="flex justify-between items-center">
+                  <span>Subtotal:</span>
+                  <span className="font-bold text-neutral-900">
+                    ${subtotal.toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span>
+                    Delivery (
+                    {deliveryOption === "express" ? "VIP Express" : "Standard"}
+                    ):
+                  </span>
+                  <span
+                    className={
+                      shippingFee === 0
+                        ? "text-emerald-600 font-bold"
+                        : "font-bold text-neutral-900"
+                    }
+                  >
+                    {shippingFee === 0 ? "FREE" : `$${shippingFee.toFixed(2)}`}
+                  </span>
+                </div>
+
+                {appliedPromo && promoDiscount > 0 && (
+                  <div className="flex justify-between items-center text-emerald-600 font-bold">
+                    <span>Discount:</span>
+                    <span>-${promoDiscount.toFixed(2)}</span>
+                  </div>
+                )}
+
+                <div className="pt-3 border-t border-neutral-300 flex justify-between items-baseline">
+                  <div>
+                    <span className="text-xs font-mono font-extrabold uppercase tracking-wider text-neutral-500 block">
+                      TOTAL DUE
+                    </span>
+                    <span className="text-[10px] font-mono text-neutral-400">
+                      All taxes & duties included
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-2xl font-mono font-black text-neutral-950 block tracking-tight">
+                      ${totalAmount.toFixed(2)}
+                    </span>
+                    <span className="text-[10px] font-mono text-neutral-400 uppercase">
+                      USD CURRENCY
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* VIP Security & Dispatch Badges */}
+              <div className="pt-3 border-t border-neutral-200/80 space-y-2 text-[10px] font-mono text-neutral-500">
+                <div className="flex items-center gap-2">
+                  <LockOutlined className="text-amber-500 text-xs shrink-0" />
+                  <span>256-Bit SSL Encrypted & Protected Checkout</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <QrcodeOutlined className="text-red-500 text-xs shrink-0" />
+                  <span>Instant Bakong Dynamic KHQR Official NBC Link</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CarOutlined className="text-amber-500 text-xs shrink-0" />
+                  <span>Real-Time Driver Dispatch Tracking</span>
+                </div>
+              </div>
             </div>
-          </Form>
-        </div>
+          </div>
+        </Form>
       </Modal>
 
       {/* Bakong KHQR Official Payment Modal */}
@@ -1347,98 +1768,92 @@ const CheckoutModal = ({
           setPolling(false);
         }}
         footer={null}
-        width={420}
+        width={440}
         centered
         destroyOnClose
         className="bakong-khqr-modal"
       >
-        {/* Official NBC Bakong Header */}
-        <div className="bg-gradient-to-r from-red-600 via-red-700 to-red-800 text-white p-4 flex items-center justify-between px-5">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-white text-red-600 flex items-center justify-center font-black text-xs font-mono shadow-xs">
+        {/* Clean Luxury Bakong KHQR Header */}
+        <div className="px-6 pt-6 pb-4 bg-white border-b border-neutral-100 text-center relative">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <span className="w-6 h-6 rounded-full bg-[#d91424] text-white flex items-center justify-center font-mono font-black text-[10px] shadow-sm shrink-0">
               KH
-            </div>
-            <span className="font-mono font-black text-xs sm:text-sm uppercase tracking-wider text-white">
-              DYNAMIC BAKONG KHQR
+            </span>
+            <span className="font-serif font-black text-base sm:text-lg uppercase tracking-wider text-neutral-900">
+              Bakong Dynamic KHQR
+            </span>
+            <span className="text-[9px] font-mono font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full uppercase">
+              NBC
             </span>
           </div>
-          <span className="text-[9px] font-mono font-bold bg-white/20 text-white px-2 py-0.5 rounded uppercase">
-            NBC OFFICIAL
-          </span>
+          <p className="text-[11px] text-neutral-500 font-mono m-0">
+            Scan with ABA Bank, Acleda, Wing, or any Cambodian banking app
+          </p>
         </div>
 
-        <div className="p-4 sm:p-5 text-center space-y-3.5">
-          {/* Amount Display */}
-          <div className="bg-neutral-50 p-3 rounded-xl border border-neutral-200 text-center font-mono">
-            <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest block">
-              DYNAMIC AMOUNT EMBEDDED IN KHQR
-            </span>
-            <div className="text-2xl font-black text-black">
+        <div className="p-6 text-center space-y-4 bg-white">
+          {/* Amount Display & Currency Switch */}
+          <div className="flex flex-col items-center gap-2">
+            <div className="inline-flex p-1 bg-neutral-100 rounded-full border border-neutral-200 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => handleCurrencyChange("USD")}
+                className={`px-3.5 py-1 text-xs font-mono font-bold rounded-full transition-all cursor-pointer flex items-center gap-1.5 ${
+                  selectedCurrency === "USD"
+                    ? "bg-black text-white shadow-xs"
+                    : "text-neutral-600 hover:text-black"
+                }`}
+              >
+                <UsFlagIcon />
+                <span>USD</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCurrencyChange("KHR")}
+                className={`px-3.5 py-1 text-xs font-mono font-bold rounded-full transition-all cursor-pointer flex items-center gap-1.5 ${
+                  selectedCurrency === "KHR"
+                    ? "bg-black text-white shadow-xs"
+                    : "text-neutral-600 hover:text-black"
+                }`}
+              >
+                <KhFlagIcon />
+                <span>KHR</span>
+              </button>
+            </div>
+
+            <div className="text-3xl sm:text-4xl font-black font-serif text-neutral-900 tracking-tight my-0.5">
               {selectedCurrency === "KHR"
                 ? `${khrAmount.toLocaleString()} KHR`
                 : `$${totalAmount.toFixed(2)}`}
-              <span className="text-xs text-neutral-500 font-normal block mt-0.5">
-                {selectedCurrency === "KHR"
-                  ? `(~$${totalAmount.toFixed(2)} USD)`
-                  : `(~${khrAmount.toLocaleString()} KHR)`}
-              </span>
             </div>
-            <span className="text-[10px] text-amber-600 font-bold uppercase tracking-wider block mt-1">
-              MERCHANT: {khqrData?.merchant_name || "REAKSA VEASNA"}
-            </span>
-            <div className="flex items-center justify-center gap-2 mt-1">
-              <span className="text-[10px] text-amber-700 font-bold uppercase tracking-wider truncate max-w-[240px]">
-                ACCOUNT: veasna_reaksa@bkrt
+
+            <div className="text-[11px] font-mono text-neutral-500 flex flex-wrap items-center justify-center gap-2">
+              <span>
+                Merchant: <strong className="text-neutral-900 font-bold">{khqrData?.merchant_name || "REAKSA VEASNA"}</strong>
               </span>
+              <span>•</span>
               <button
                 type="button"
                 onClick={() => {
                   navigator.clipboard.writeText("veasna_reaksa@bkrt");
                   notification.success({
-                    message: "Account ID Copied!",
+                    message: "Account ID Copied",
                     description: "veasna_reaksa@bkrt copied to clipboard",
                     placement: "bottomRight",
-                    duration: 2,
+                    duration: 1.5,
                   });
                 }}
-                className="text-[9px] font-mono bg-neutral-200 hover:bg-black hover:text-white px-1.5 py-0.5 rounded font-bold transition-colors cursor-pointer shrink-0"
+                className="hover:text-black inline-flex items-center gap-1 cursor-pointer underline text-neutral-600 font-medium"
+                title="Copy Bakong ID"
               >
-                COPY ID
+                <span>veasna_reaksa@bkrt</span>
+                <CopyOutlined className="text-[10px]" />
               </button>
             </div>
           </div>
 
-          {/* Currency Toggle */}
-          <div className="flex justify-center items-center gap-2 text-xs font-mono">
-            <span className="text-[10px] font-bold text-neutral-500 uppercase">
-              CURRENCY:
-            </span>
-            <button
-              type="button"
-              onClick={() => handleCurrencyChange("USD")}
-              className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-all cursor-pointer ${
-                selectedCurrency === "USD"
-                  ? "bg-red-600 text-white shadow-xs"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-              }`}
-            >
-              USD (${totalAmount.toFixed(2)})
-            </button>
-            <button
-              type="button"
-              onClick={() => handleCurrencyChange("KHR")}
-              className={`px-3 py-1 text-[10px] font-bold rounded-lg transition-all cursor-pointer ${
-                selectedCurrency === "KHR"
-                  ? "bg-red-600 text-white shadow-xs"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-              }`}
-            >
-              KHR ({khrAmount.toLocaleString()}៛)
-            </button>
-          </div>
-
-          {/* Pure Dynamic KHQR Box */}
-          <div className="relative bg-white p-3.5 rounded-2xl border-2 border-red-500/40 inline-block shadow-md">
+          {/* Clean Prominent QR Box with Live Scanner */}
+          <div className="relative inline-flex flex-col items-center justify-center p-4 sm:p-5 bg-white rounded-2xl border-2 border-neutral-200/90 shadow-md">
             {paymentSuccess ? (
               <div className="w-[210px] h-[210px] sm:w-[230px] sm:h-[230px] flex flex-col items-center justify-center bg-emerald-50 rounded-xl space-y-2 text-emerald-600">
                 <CheckCircleOutlined className="text-5xl animate-bounce" />
@@ -1451,23 +1866,23 @@ const CheckoutModal = ({
               </div>
             ) : verifying ? (
               <div className="w-[210px] h-[210px] sm:w-[230px] sm:h-[230px] flex flex-col items-center justify-center bg-amber-50 rounded-xl space-y-3 text-amber-600">
-                <SyncOutlined spin className="text-5xl text-amber-600" />
-                <span className="font-mono font-black text-xs uppercase tracking-wider text-amber-900 text-center px-2">
-                  VERIFYING PAYMENT ON BAKONG NETWORK...
+                <SyncOutlined spin className="text-4xl text-amber-600" />
+                <span className="font-mono font-bold text-xs uppercase tracking-wider text-amber-900 text-center px-2">
+                  Verifying on Bakong Network...
                 </span>
                 <span className="text-[10px] text-amber-700 font-mono animate-pulse">
-                  Please wait a moment
+                  Please hold on...
                 </span>
               </div>
             ) : !khqrData?.qr_string ? (
-              <div className="w-[210px] h-[210px] sm:w-[230px] sm:h-[230px] flex flex-col items-center justify-center bg-neutral-50 rounded-xl space-y-3 text-neutral-400">
-                <SyncOutlined spin className="text-3xl text-red-500" />
-                <span className="font-mono text-xs font-bold text-neutral-600">
+              <div className="w-[210px] h-[210px] sm:w-[230px] sm:h-[230px] flex flex-col items-center justify-center bg-neutral-50 rounded-xl space-y-3 text-neutral-500">
+                <SyncOutlined spin className="text-3xl text-neutral-700" />
+                <span className="font-mono text-xs font-semibold text-neutral-600">
                   Generating Dynamic KHQR...
                 </span>
               </div>
             ) : (
-              <div className="bg-white p-2.5 rounded-xl border border-neutral-200 inline-block shadow-2xs">
+              <div className="p-1.5 bg-white rounded-xl shadow-2xs">
                 <QRCode
                   type="svg"
                   value={khqrData.qr_string}
@@ -1479,119 +1894,86 @@ const CheckoutModal = ({
                 />
               </div>
             )}
-            <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] font-mono text-neutral-500 font-bold uppercase">
+
+            {/* Live Scanner Radar directly under QR */}
+            <div className="mt-3 flex items-center justify-center">
               {verifying ? (
-                <>
-                  <SyncOutlined spin className="text-amber-500" />
-                  <span className="text-amber-600">Verifying Payment...</span>
-                </>
+                <div className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-amber-700">
+                  <SyncOutlined spin className="text-amber-600 text-xs" />
+                  <span>Verifying payment...</span>
+                </div>
               ) : polling ? (
-                <>
-                  <SyncOutlined spin className="text-red-500" />
-                  <span>Scanning Bakong Network...</span>
-                </>
+                <div className="inline-flex items-center gap-2 text-xs font-mono text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200/80">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                  </span>
+                  <span className="tracking-wide font-bold">Scanning Bakong Network...</span>
+                </div>
               ) : (
-                <>
-                  <CheckOutlined className="text-emerald-500" />
+                <div className="inline-flex items-center gap-1.5 text-xs font-mono text-neutral-600">
+                  <CheckOutlined className="text-emerald-600 text-xs" />
                   <span>Ready for scan</span>
-                </>
+                </div>
               )}
             </div>
           </div>
 
-          {/* Official NBC Deeplink One-Tap Action for Mobile Users */}
-          {khqrData?.deeplink && (
-            <a
-              href={khqrData.deeplink}
-              className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-mono font-black text-xs uppercase tracking-wider rounded-xl shadow-lg transition-transform active:scale-98 cursor-pointer"
-            >
-              <span className="text-base">📱</span>
-              <span>TAP TO PAY IN ABA / BAKONG APP</span>
-            </a>
-          )}
+          {/* Quick Actions (Tap to Pay + Save/Copy) */}
+          <div className="flex flex-col gap-2 max-w-xs mx-auto w-full pt-1">
+            {khqrData?.deeplink && (
+              <a
+                href={khqrData.deeplink}
+                className="flex items-center justify-center gap-2 py-3 px-4 bg-[#d91424] hover:bg-[#b80e1c] text-white font-mono font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-[0.98] cursor-pointer"
+              >
+                <MobileOutlined className="text-sm" />
+                <span>TAP TO PAY IN BANK APP</span>
+              </a>
+            )}
 
-          {/* Mobile Utilities: Save QR to Photo Gallery & Copy Raw Payload */}
-          <div className="flex items-center justify-center gap-2.5 pt-1">
-            <button
-              type="button"
-              onClick={handleDownloadQrImage}
-              className="flex items-center gap-1.5 text-[10px] font-mono font-bold bg-neutral-100 hover:bg-neutral-200 text-neutral-800 px-3 py-1.5 rounded-lg border border-neutral-300 transition-colors cursor-pointer"
-            >
-              <span>💾</span>
-              <span>SAVE QR TO GALLERY</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const currentStr = khqrData?.qr_string || "";
-                navigator.clipboard.writeText(currentStr);
-                notification.success({
-                  message: "Dynamic KHQR Copied!",
-                  description:
-                    "Payload copied to clipboard for banking app paste",
-                  placement: "bottomRight",
-                  duration: 2,
-                });
-              }}
-              className="text-[10px] font-mono text-neutral-500 hover:text-black underline font-bold uppercase tracking-wider cursor-pointer"
-            >
-              📋 COPY RAW KHQR
-            </button>
-          </div>
-
-          {/* Mobile Bank Apps Deep Launchers */}
-          <div className="space-y-1.5 pt-1">
-            <span className="text-[9px] font-mono font-bold text-neutral-400 uppercase tracking-widest block">
-              SCAN OR TAP WITH ANY CAMBODIAN BANKING APP
-            </span>
-            <div className="grid grid-cols-4 gap-1.5">
-              <a
-                href={khqrData?.deeplink || "abamobile://"}
-                className="bg-sky-900 hover:bg-sky-950 text-white text-[9px] font-bold font-mono py-2 rounded-lg text-center block transition-colors shadow-2xs"
+            <div className="flex items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadQrImage}
+                className="flex-1 py-2 px-3 text-xs font-mono font-bold bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-lg border border-neutral-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
               >
-                ABA Bank
-              </a>
-              <a
-                href={khqrData?.deeplink || "acledamobile://"}
-                className="bg-blue-900 hover:bg-blue-950 text-white text-[9px] font-bold font-mono py-2 rounded-lg text-center block transition-colors shadow-2xs"
+                <DownloadOutlined className="text-xs" />
+                <span>Save QR</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const currentStr = khqrData?.qr_string || "";
+                  navigator.clipboard.writeText(currentStr);
+                  notification.success({
+                    message: "KHQR Copied",
+                    description: "Raw payload copied to clipboard",
+                    placement: "bottomRight",
+                    duration: 1.5,
+                  });
+                }}
+                className="flex-1 py-2 px-3 text-xs font-mono font-bold bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-lg border border-neutral-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
               >
-                ACLEDA
-              </a>
-              <a
-                href={khqrData?.deeplink || "wingbank://"}
-                className="bg-lime-600 hover:bg-lime-700 text-white text-[9px] font-bold font-mono py-2 rounded-lg text-center block transition-colors shadow-2xs"
-              >
-                Wing
-              </a>
-              <a
-                href={khqrData?.deeplink || "bakong://"}
-                className="bg-red-700 hover:bg-red-800 text-white text-[9px] font-bold font-mono py-2 rounded-lg text-center block transition-colors shadow-2xs"
-              >
-                Bakong
-              </a>
+                <CopyOutlined className="text-xs" />
+                <span>Copy KHQR</span>
+              </button>
             </div>
           </div>
 
-          {/* Verification & Action Buttons */}
-          <div className="space-y-2 pt-2 border-t border-neutral-200">
-            <Button
-              type="primary"
-              onClick={handleManualVerify}
-              loading={verifying}
-              icon={<ThunderboltOutlined />}
-              className="w-full !bg-red-600 hover:!bg-red-700 text-white font-extrabold text-xs uppercase tracking-wider h-11 rounded-xl shadow-md border-none cursor-pointer"
-            >
-              CONFIRM & VERIFY KHQR PAYMENT
-            </Button>
+          {/* Minimal Footer */}
+          <div className="pt-2 border-t border-neutral-100 flex flex-col items-center gap-1">
+            <span className="text-[10px] font-mono text-neutral-400">
+              Auto-verifies in real time • No confirmation button needed
+            </span>
             <button
               type="button"
               onClick={() => {
                 setBakongModalOpen(false);
                 setPolling(false);
               }}
-              className="text-[10px] font-mono text-neutral-400 hover:text-black uppercase tracking-wider cursor-pointer block mx-auto py-1"
+              className="text-xs text-neutral-400 hover:text-black uppercase tracking-wider cursor-pointer py-1 transition-colors"
             >
-              Cancel Payment & Return to Cart
+              Cancel & Return to Checkout
             </button>
           </div>
         </div>

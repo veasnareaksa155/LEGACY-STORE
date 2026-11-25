@@ -9,6 +9,7 @@ import {
   SafetyCertificateOutlined,
   CrownOutlined,
   KeyOutlined,
+  CarOutlined,
 } from "@ant-design/icons";
 import { createUser, loginUser, loginWithGoogle } from "../services/api";
 
@@ -88,9 +89,8 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
       });
 
       const apiUser = res.data || res;
-      const sessionRole =
-        apiUser.role ||
-        (values.email?.toLowerCase().includes("admin") ? "admin" : "user");
+      // Strict role check: Only backend-verified admin accounts receive the admin role
+      const sessionRole = apiUser.role === "admin" ? "admin" : "user";
 
       const userData = {
         id: apiUser.id || Date.now(),
@@ -217,9 +217,8 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
 
       const apiUser = res.data || res;
       const isNewUser = res.is_new_user || false;
-      const sessionRole =
-        apiUser.role ||
-        (email.toLowerCase().includes("admin") ? "admin" : "user");
+      // Strict role check: Google users default to user, only backend verified admin is admin
+      const sessionRole = apiUser.role === "admin" ? "admin" : "user";
 
       const userData = {
         id: apiUser.id || Date.now(),
@@ -240,7 +239,7 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
 
       if (isNewUser || googleActionIntent === "register") {
         notification.success({
-          message: "🎉 WELCOME TO LEGACY VIP MEMBERSHIP",
+          message: "WELCOME TO LEGACY VIP MEMBERSHIP",
           description: `Your verified Google account (${userData.email}) is now active with Black Diamond VIP privileges!`,
           placement: "bottomRight",
           duration: 4,
@@ -869,8 +868,9 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
                 </div>
 
                 <div className="pb-2">
-                  <p className="text-[10px] text-neutral-500 font-mono uppercase tracking-widest">
-                    ✨ Worldwide Express Delivery
+                  <p className="text-[10px] text-neutral-500 font-mono uppercase tracking-widest flex items-center justify-center">
+                    <CarOutlined className="text-amber-400 mr-1.5" />
+                    <span>Worldwide Express Delivery</span>
                   </p>
                 </div>
               </div>
@@ -910,8 +910,9 @@ const AuthModal = ({ open, onClose, onLoginSuccess }) => {
                 </div>
 
                 <div className="pb-2">
-                  <p className="text-[10px] text-neutral-500 font-mono uppercase tracking-widest">
-                    ✨ 24/7 VIP Concierge Services
+                  <p className="text-[10px] text-neutral-500 font-mono uppercase tracking-widest flex items-center justify-center">
+                    <SafetyCertificateOutlined className="text-amber-400 mr-1.5" />
+                    <span>24/7 VIP Concierge Services</span>
                   </p>
                 </div>
               </div>

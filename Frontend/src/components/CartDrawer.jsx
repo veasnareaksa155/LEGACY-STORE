@@ -401,12 +401,15 @@ const CartDrawer = ({
             {/* Applied Promo Banner */}
             {appliedPromoObj && (
               <div className="flex justify-between items-center text-[10px] text-emerald-800 font-mono font-bold bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg">
-                <span>
-                  🎉 APPLIED: {appliedPromoObj.code} (
-                  {appliedPromoObj.isFreeShip
-                    ? "FREE SHIPPING"
-                    : `${appliedPromoObj.discountPercent}% OFF`}
-                  )
+                <span className="flex items-center gap-1">
+                  <CheckCircleOutlined className="text-emerald-600 text-xs" />
+                  <span>
+                    APPLIED: {appliedPromoObj.code} (
+                    {appliedPromoObj.isFreeShip
+                      ? "FREE SHIPPING"
+                      : `${appliedPromoObj.discountPercent}% OFF`}
+                    )
+                  </span>
                 </span>
                 <button
                   type="button"

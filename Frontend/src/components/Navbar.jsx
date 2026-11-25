@@ -128,9 +128,15 @@ const Navbar = ({
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-neutral-200 transition-all duration-300">
         {/* Top Announcement Banner (Desktop / Tablet) */}
         <div className="hidden sm:block bg-black text-white text-xs py-2 px-4 text-center font-medium tracking-widest uppercase">
-          <span>
-            ✨ Free Worldwide Express Shipping on Orders Over $200 | Legacy
-            Store
+          <span className="inline-flex items-center justify-center">
+            <svg
+              className="w-3.5 h-3.5 text-amber-400 mr-2 shrink-0 fill-current inline-block align-middle"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <path d="M12 0L14.59 9.41L24 12L14.59 14.59L12 24L9.41 14.59L0 12L9.41 9.41L12 0Z" />
+            </svg>
+            Free Worldwide Express Shipping on Orders Over $200 | Legacy Store
           </span>
         </div>
 
@@ -314,12 +320,23 @@ const Navbar = ({
                 </button>
               </div>
 
-              {/* Account Button (Desktop) */}
+              {/* Desktop Admin Portal Shortcut (Only visible when logged in as Admin) */}
+              {user && (user.role === "admin" || userRole === "admin") && (
+                <button
+                  type="button"
+                  onClick={() => onNavigatePage("admin")}
+                  className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black hover:bg-neutral-800 text-amber-400 border border-amber-500/50 text-[11px] font-mono font-bold tracking-wider uppercase transition-all shadow-xs cursor-pointer active:scale-95"
+                  title="Open Admin Management Panel"
+                >
+                  <CrownOutlined className="text-amber-400 text-xs" />
+                  <span>ADMIN</span>
+                </button>
+              )}
+
+              {/* Account Button (Desktop) - Navigates to Personal User Account */}
               <button
                 onClick={() => {
-                  if (user && (user.role === "admin" || userRole === "admin")) {
-                    onNavigatePage("admin");
-                  } else if (user) {
+                  if (user) {
                     onNavigatePage("account");
                   } else if (onOpenAuthModal) {
                     onOpenAuthModal();
@@ -328,7 +345,7 @@ const Navbar = ({
                   }
                 }}
                 className={`w-10 h-10 shrink-0 aspect-square p-0 rounded-full flex items-center justify-center border transition-all duration-300 leading-none shadow-xs font-serif font-bold text-sm cursor-pointer overflow-hidden ${
-                  activePage === "account" || activePage === "admin"
+                  activePage === "account"
                     ? "bg-black text-white border-black"
                     : user
                       ? "bg-neutral-900 text-white border-black hover:bg-neutral-800"
@@ -336,11 +353,9 @@ const Navbar = ({
                 }`}
                 aria-label="User Account Portal"
                 title={
-                  user?.role === "admin"
-                    ? `Logged in as ${user.name} - View Admin Dashboard`
-                    : user
-                      ? `Logged in as ${user.name} - View VIP Account`
-                      : "Sign In or Register VIP Account"
+                  user
+                    ? `Logged in as ${user.name} - View Profile & Orders`
+                    : "Sign In or Register VIP Account"
                 }
               >
                 {user && (user.avatar || user.avatar_url) ? (
@@ -355,22 +370,6 @@ const Navbar = ({
                   <UserOutlined style={{ fontSize: "17px" }} />
                 )}
               </button>
-
-              {/* Delivery Tracker Button (Desktop - Only Shown After User Payout) */}
-              {hasPaidOrder && (
-                <button
-                  onClick={onOpenDeliveryTracking}
-                  className="relative w-10 h-10 shrink-0 aspect-square p-0 bg-amber-500 hover:bg-amber-400 text-black rounded-full transition-all duration-300 flex items-center justify-center border border-amber-600 shadow-md leading-none cursor-pointer group"
-                  title="Track Live Delivery 🚚"
-                  aria-label="Track Live Delivery"
-                >
-                  <CarOutlined style={{ fontSize: "18px", color: "#000000" }} />
-                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-600"></span>
-                  </span>
-                </button>
-              )}
 
               {/* Wishlist Button (Desktop) */}
               <button
@@ -511,12 +510,10 @@ const Navbar = ({
           </span>
         </button>
 
-        {/* 5. Account / Admin */}
+        {/* 5. Account */}
         <button
           onClick={() => {
-            if (user && (user.role === "admin" || userRole === "admin")) {
-              onNavigatePage("admin");
-            } else if (user) {
+            if (user) {
               onNavigatePage("account");
             } else if (onOpenAuthModal) {
               onOpenAuthModal();
@@ -525,18 +522,20 @@ const Navbar = ({
             }
           }}
           className={`flex flex-col items-center justify-center py-1 px-3 rounded-lg transition-colors cursor-pointer ${
-            activePage === "account" || activePage === "admin"
+            activePage === "account"
               ? "text-black font-extrabold"
               : "text-neutral-400 hover:text-neutral-700 font-medium"
           }`}
         >
           {user && (user.role === "admin" || userRole === "admin") ? (
-            <CrownOutlined style={{ fontSize: "19px", color: "#d4af37" }} />
+            <Badge dot color="#f59e0b" offset={[-2, 2]}>
+              <UserOutlined style={{ fontSize: "19px" }} />
+            </Badge>
           ) : (
             <UserOutlined style={{ fontSize: "19px" }} />
           )}
           <span className="text-[9px] font-mono uppercase tracking-wider mt-0.5">
-            {user ? (user.role === "admin" ? "ADMIN" : "ACCOUNT") : "LOGIN"}
+            {user ? "ACCOUNT" : "LOGIN"}
           </span>
         </button>
       </nav>
@@ -576,11 +575,6 @@ const Navbar = ({
         open={mobileMenuOpen}
         width={310}
         closeIcon={false}
-        maskStyle={{
-          backdropFilter: "blur(8px)",
-          WebkitBackdropFilter: "blur(8px)",
-          backgroundColor: "rgba(0, 0, 0, 0.45)",
-        }}
         styles={{
           mask: {
             backdropFilter: "blur(8px)",
@@ -615,12 +609,12 @@ const Navbar = ({
                       </h4>
                       <div className="mt-1 flex items-center gap-1.5">
                         {user.role === "admin" || userRole === "admin" ? (
-                          <span className="bg-amber-500 text-black text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded shadow-xs">
-                            ⚡ SUPERADMIN
+                          <span className="bg-amber-500 text-black text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded shadow-xs inline-flex items-center gap-1">
+                            <CrownOutlined className="text-[10px]" /> SUPERADMIN
                           </span>
                         ) : (
-                          <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded">
-                            ✨ VIP CLIENTELE
+                          <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded inline-flex items-center gap-1">
+                            <CrownOutlined className="text-[10px] text-amber-400" /> VIP CLIENTELE
                           </span>
                         )}
                       </div>
@@ -698,7 +692,10 @@ const Navbar = ({
                   onClick={() => handlePageClick("shop")}
                   className="w-full text-left text-xs font-semibold text-neutral-700 hover:text-black py-1.5 px-2.5 rounded-lg hover:bg-neutral-100 flex items-center justify-between cursor-pointer"
                 >
-                  <span>👔 Shirts & Tailoring</span>
+                  <span className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                    Shirts & Tailoring
+                  </span>
                   <span className="bg-amber-100 text-amber-900 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded">
                     NEW
                   </span>
@@ -707,7 +704,10 @@ const Navbar = ({
                   onClick={() => handlePageClick("shop")}
                   className="w-full text-left text-xs font-semibold text-neutral-700 hover:text-black py-1.5 px-2.5 rounded-lg hover:bg-neutral-100 flex items-center justify-between cursor-pointer"
                 >
-                  <span>👕 T-Shirts & Heavyweight Tees</span>
+                  <span className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                    T-Shirts & Heavyweight Tees
+                  </span>
                   <span className="bg-red-100 text-red-700 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded">
                     HOT
                   </span>
@@ -716,7 +716,10 @@ const Navbar = ({
                   onClick={() => handlePageClick("shop")}
                   className="w-full text-left text-xs font-semibold text-neutral-700 hover:text-black py-1.5 px-2.5 rounded-lg hover:bg-neutral-100 flex items-center justify-between cursor-pointer"
                 >
-                  <span>👟 Luxury Footwear & Sneakers</span>
+                  <span className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    Luxury Footwear & Sneakers
+                  </span>
                   <span className="bg-emerald-100 text-emerald-800 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded">
                     POPULAR
                   </span>
@@ -770,30 +773,41 @@ const Navbar = ({
           {/* Bottom Account & Concierge Action Footer */}
           <div className="pt-3 border-t border-neutral-200 space-y-2.5">
             {user ? (
-              <div className="flex items-center justify-between px-1">
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    if (user.role === "admin" || userRole === "admin") {
-                      onNavigatePage("admin");
-                    } else {
-                      onNavigatePage("account");
-                    }
-                  }}
-                  className="text-xs font-extrabold text-black hover:text-neutral-700 flex items-center gap-2 cursor-pointer py-1 px-2.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 transition-colors"
-                >
-                  <UserOutlined className="text-amber-600" />
-                  <span>My Account</span>
-                </button>
-                {onLogout && (
+              <div className="flex flex-col gap-2 px-1">
+                <div className="flex items-center justify-between gap-2">
                   <button
                     onClick={() => {
                       setMobileMenuOpen(false);
-                      onLogout();
+                      onNavigatePage("account");
                     }}
-                    className="text-xs font-extrabold text-red-600 hover:bg-red-600 hover:text-white px-3 py-1 rounded-lg border border-red-200 transition-all cursor-pointer"
+                    className="flex-1 text-xs font-extrabold text-black hover:text-neutral-700 flex items-center justify-center gap-2 cursor-pointer py-2 px-2.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 transition-colors"
                   >
-                    Logout
+                    <UserOutlined className="text-amber-600" />
+                    <span>My Account</span>
+                  </button>
+                  {onLogout && (
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        onLogout();
+                      }}
+                      className="text-xs font-extrabold text-red-600 hover:bg-red-600 hover:text-white px-3 py-2 rounded-lg border border-red-200 transition-all cursor-pointer"
+                    >
+                      Logout
+                    </button>
+                  )}
+                </div>
+
+                {(user.role === "admin" || userRole === "admin") && (
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onNavigatePage("admin");
+                    }}
+                    className="w-full text-xs font-extrabold text-black bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 hover:from-amber-300 hover:to-amber-400 py-2.5 px-3 rounded-lg shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 uppercase font-mono tracking-wider"
+                  >
+                    <CrownOutlined className="text-black" />
+                    <span>Open Admin Dashboard</span>
                   </button>
                 )}
               </div>
@@ -811,8 +825,9 @@ const Navbar = ({
             )}
 
             <div className="text-center pt-1">
-              <p className="text-[10px] text-neutral-400 font-mono">
-                ✉️ concierge@legacystore.com • Paris
+              <p className="text-[10px] text-neutral-400 font-mono inline-flex items-center justify-center gap-1.5">
+                <MailOutlined className="text-neutral-500 text-[11px]" />
+                <span>concierge@legacystore.com • Paris</span>
               </p>
             </div>
           </div>

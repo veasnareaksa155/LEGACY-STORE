@@ -1,11 +1,111 @@
 import axios from "axios";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  "https://legacy-store.onrender.com/api";
+// Helper to normalize API URLs (ensures /api suffix without duplicate slashes)
+const normalizeApiUrl = (url) => {
+  if (!url) return "";
+  let trimmed = String(url).trim().replace(/\/+$/, "");
+  if (!trimmed.endsWith("/api")) {
+    trimmed += "/api";
+  }
+  return trimmed;
+};
 
+// ============================================================================
+// DUAL-BACKEND FAILOVER ARCHITECTURE (ACTIVE-PASSIVE REDUNDANCY)
+// Service 1 (New Active Web Service): https://legacy-store-z3u6.onrender.com/api
+// Service 2 (Original Web Service / Fallback): https://legacy-store.onrender.com/api
+// ============================================================================
+const SERVICE_PRIMARY = "https://legacy-store-z3u6.onrender.com/api";
+const SERVICE_SECONDARY = "https://legacy-store.onrender.com/api";
+
+const CANDIDATE_SERVICES = [];
+
+const isLocalhost =
+  typeof window !== "undefined" &&
+  (window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1");
+
+const envBaseUrl = import.meta.env.VITE_API_BASE_URL;
+const envFallbackUrl = import.meta.env.VITE_API_BASE_URL_FALLBACK;
+
+// If explicitly provided via ENV (e.g., custom domain or localhost in dev mode)
+if (envBaseUrl) {
+  const norm = normalizeApiUrl(envBaseUrl);
+  if (!norm.includes("localhost") || isLocalhost) {
+    if (!CANDIDATE_SERVICES.includes(norm)) CANDIDATE_SERVICES.push(norm);
+  }
+}
+
+// Always ensure both Render services are registered in priority order
+if (!CANDIDATE_SERVICES.includes(SERVICE_PRIMARY)) {
+  CANDIDATE_SERVICES.push(SERVICE_PRIMARY);
+}
+if (!CANDIDATE_SERVICES.includes(SERVICE_SECONDARY)) {
+  CANDIDATE_SERVICES.push(SERVICE_SECONDARY);
+}
+if (envFallbackUrl) {
+  const normFallback = normalizeApiUrl(envFallbackUrl);
+  if (!CANDIDATE_SERVICES.includes(normFallback)) {
+    CANDIDATE_SERVICES.push(normFallback);
+  }
+}
+
+// Pointer to the currently active working backend
+let activeServiceIndex = 0;
+
+// Restore last confirmed working backend from localStorage if available
+try {
+  const savedUrl = localStorage.getItem("lx_active_backend_url");
+  if (savedUrl) {
+    const idx = CANDIDATE_SERVICES.indexOf(savedUrl);
+    if (idx !== -1) {
+      activeServiceIndex = idx;
+    }
+  }
+} catch (e) {}
+
+export const getActiveApiUrl = () => {
+  return CANDIDATE_SERVICES[activeServiceIndex] || SERVICE_PRIMARY;
+};
+
+export const getAllBackendUrls = () => [...CANDIDATE_SERVICES];
+
+export const rotateToNextBackend = (failedUrl = null) => {
+  if (CANDIDATE_SERVICES.length <= 1) return getActiveApiUrl();
+
+  activeServiceIndex = (activeServiceIndex + 1) % CANDIDATE_SERVICES.length;
+  const newActive = CANDIDATE_SERVICES[activeServiceIndex];
+  try {
+    localStorage.setItem("lx_active_backend_url", newActive);
+  } catch (e) {}
+
+  if (api) {
+    api.defaults.baseURL = newActive;
+  }
+  console.info(
+    `[Dual-Backend Failover] Switched active web service from ${failedUrl || "unreachable"} to: ${newActive}`,
+  );
+  return newActive;
+};
+
+export const markBackendSuccess = (url) => {
+  if (!url) return;
+  const normalized = normalizeApiUrl(url);
+  const idx = CANDIDATE_SERVICES.indexOf(normalized);
+  if (idx !== -1 && idx !== activeServiceIndex) {
+    activeServiceIndex = idx;
+    try {
+      localStorage.setItem("lx_active_backend_url", normalized);
+    } catch (e) {}
+    if (api) {
+      api.defaults.baseURL = normalized;
+    }
+  }
+};
+
+// Axios instance initialized with the active backend
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: getActiveApiUrl(),
   headers: {
     "Content-Type": "application/json",
     Accept: "application/json",
@@ -13,30 +113,107 @@ const api = axios.create({
   timeout: 15000,
 });
 
-// Resilient native fetch helper with 15-second timeout
-const requestFetch = async (endpoint, options = {}) => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
-  try {
-    const url = `${API_BASE_URL}${endpoint}`;
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        ...(options.headers || {}),
-      },
-      ...options,
-    });
-    clearTimeout(timeoutId);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return await response.json();
-  } catch (err) {
-    clearTimeout(timeoutId);
-    throw err;
+// Request Interceptor: Ensure current active backend is always bound
+api.interceptors.request.use((config) => {
+  if (!config.baseURL || CANDIDATE_SERVICES.includes(config.baseURL)) {
+    config.baseURL = getActiveApiUrl();
   }
+  return config;
+});
+
+// Response Interceptor: Seamlessly failover to secondary backend on 502/503/timeout/network error
+api.interceptors.response.use(
+  (response) => {
+    markBackendSuccess(api.defaults.baseURL);
+    return response;
+  },
+  async (error) => {
+    const config = error.config;
+    if (!config) return Promise.reject(error);
+
+    config._retryCount = config._retryCount || 0;
+    if (config._retryCount >= CANDIDATE_SERVICES.length - 1) {
+      return Promise.reject(error);
+    }
+
+    const isNetworkError = !error.response;
+    const isServerError =
+      error.response &&
+      (error.response.status >= 500 ||
+        error.response.status === 503 ||
+        error.response.status === 502);
+
+    if (isNetworkError || isServerError) {
+      config._retryCount += 1;
+      const nextUrl = rotateToNextBackend(config.baseURL);
+      console.warn(
+        `[Axios Failover] Request to ${config.baseURL || ""}${config.url} failed. Retrying on secondary web service: ${nextUrl}...`,
+      );
+      config.baseURL = nextUrl;
+      return api(config);
+    }
+
+    return Promise.reject(error);
+  },
+);
+
+// Resilient native fetch helper with Automatic Dual-Backend Failover
+export const requestFetch = async (endpoint, options = {}) => {
+  const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  const totalServices = CANDIDATE_SERVICES.length;
+  let lastError = null;
+
+  for (let attempt = 0; attempt < totalServices; attempt++) {
+    const baseUrl = getActiveApiUrl();
+    const fullUrl = `${baseUrl}${cleanEndpoint}`;
+    const timeoutMs = options.timeout || 14000;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(fullUrl, {
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          ...(options.headers || {}),
+        },
+        ...options,
+      });
+      clearTimeout(timeoutId);
+
+      // Render returns 502/503 when suspended or in cold sleep
+      if (!response.ok) {
+        if (
+          response.status >= 500 ||
+          response.status === 503 ||
+          response.status === 502
+        ) {
+          throw new Error(
+            `Server returned HTTP ${response.status} from ${baseUrl}`,
+          );
+        }
+        // Client errors (400, 401, 404, 422) mean the server is healthy
+        markBackendSuccess(baseUrl);
+        return await response.json();
+      }
+
+      markBackendSuccess(baseUrl);
+      return await response.json();
+    } catch (err) {
+      clearTimeout(timeoutId);
+      lastError = err;
+      console.warn(
+        `[Failover] Backend ${baseUrl} unreachable (${err.message}). Trying backup service...`,
+      );
+      rotateToNextBackend(baseUrl);
+    }
+  }
+
+  throw (
+    lastError ||
+    new Error("All backend web services are currently unreachable.")
+  );
 };
 
 export const fetchCategories = async () => {
@@ -415,6 +592,7 @@ export const checkBakongPaymentStatus = async (
   orderId = null,
   manual = false,
   altMd5 = null,
+  elapsed = 0,
 ) => {
   try {
     const payload = {
@@ -422,6 +600,7 @@ export const checkBakongPaymentStatus = async (
       alt_md5: altMd5,
       order_id: orderId,
       manual: Boolean(manual),
+      elapsed: Number(elapsed) || 0,
     };
     try {
       return await requestFetch("/bakong/check-status", {

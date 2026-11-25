@@ -10,11 +10,20 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // Seed SuperAdmin User
+        // Seed SuperAdmin Users
         User::updateOrCreate(
             ['email' => 'admin@alexandreluxe.com'],
             [
                 'name' => 'SuperAdmin Alexandre',
+                'password' => Hash::make('password123'),
+                'role' => 'admin',
+            ]
+        );
+
+        User::updateOrCreate(
+            ['email' => 'admin@legacystore.com'],
+            [
+                'name' => 'SuperAdmin Legacy',
                 'password' => Hash::make('password123'),
                 'role' => 'admin',
             ]

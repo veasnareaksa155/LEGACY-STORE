@@ -9,6 +9,8 @@ import {
   TagOutlined,
   ArrowRightOutlined,
   InstagramOutlined,
+  LeftOutlined,
+  RightOutlined,
 } from "@ant-design/icons";
 
 import HeroSlider from "../components/HeroSlider";
@@ -202,16 +204,14 @@ const ElasticCardStack = () => {
   );
 };
 
-// 3D Round Carousel Component (Originkit)
+// 3D Round Carousel Component (Originkit) - Optimized Without High-CPU Auto-Loop
 const RoundCarousel = ({
   images = [],
   imageWidth = 260,
   imageHeight = 320,
   spacing = 2.5,
-  speed = 6,
-  direction = "right",
   drag = true,
-  sensitivity = 5,
+  sensitivity = 4.5,
   tilt = -6,
   perspective = 2500,
   cornerRadius = 24,
@@ -237,60 +237,113 @@ const RoundCarousel = ({
   const rafRef = useRef(0);
   const rotYRef = useRef(0);
   const velRef = useRef(0);
-  const lastRef = useRef(0);
   const dragRef = useRef({ active: false, x: 0 });
+  const [isGrabbing, setIsGrabbing] = useState(false);
 
   const angle = 360 / count;
   const factor = 1 + spacing * 0.15;
   const radius = (imageWidth * factor) / (2 * Math.tan(Math.PI / count));
   const radiusPx = cornerRadius;
-  const degPerSec = speed * 6 * (direction === "left" ? -1 : 1);
 
+  const applyTransform = () => {
+    if (ringRef.current) {
+      ringRef.current.style.transform = `translateZ(${-radius}px) rotateY(${rotYRef.current}deg)`;
+    }
+  };
+
+  // Initial stationary layout (No auto loop = 0% background CPU / GPU load)
   useEffect(() => {
-    const ring = ringRef.current;
-    if (!ring) return;
-    const apply = () =>
-      (ring.style.transform = `translateZ(${-radius}px) rotateY(${rotYRef.current}deg)`);
-    apply();
-
-    const draw = (now) => {
-      const dt = lastRef.current ? (now - lastRef.current) / 1000 : 0;
-      lastRef.current = now;
-      const f = Math.min(dt, 0.1);
-      const d = dragRef.current;
-      if (!d.active) {
-        if (Math.abs(velRef.current) > 0.01) {
-          rotYRef.current += velRef.current * f;
-          velRef.current *= 0.94;
-        } else {
-          rotYRef.current += degPerSec * f;
-        }
-      }
-      apply();
-      rafRef.current = requestAnimationFrame(draw);
+    applyTransform();
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-    rafRef.current = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [radius, degPerSec, count]);
+  }, [radius, count]);
+
+  // Smooth coasting friction loop after drag release
+  const startMomentumLoop = () => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    let lastTime = performance.now();
+
+    const loop = (now) => {
+      const dt = Math.min((now - lastTime) / 1000, 0.08);
+      lastTime = now;
+
+      if (!dragRef.current.active) {
+        if (Math.abs(velRef.current) > 0.08) {
+          rotYRef.current += velRef.current * dt;
+          velRef.current *= 0.92; // smooth friction decay
+          applyTransform();
+          rafRef.current = requestAnimationFrame(loop);
+          return;
+        } else {
+          velRef.current = 0;
+          applyTransform();
+          rafRef.current = 0;
+          return; // STOPS COMPLETELY WHEN STILL: 0% CPU
+        }
+      } else {
+        applyTransform();
+        rafRef.current = requestAnimationFrame(loop);
+      }
+    };
+
+    rafRef.current = requestAnimationFrame(loop);
+  };
+
+  // Smooth step rotate via buttons
+  const rotateStep = (direction) => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    const step = direction === "left" ? angle : -angle;
+    const startRot = rotYRef.current;
+    const targetRot = startRot + step;
+    const duration = 380; // ms
+    let startTime = null;
+
+    const anim = (now) => {
+      if (!startTime) startTime = now;
+      const progress = Math.min((now - startTime) / duration, 1);
+      // easeOutCubic
+      const ease = 1 - Math.pow(1 - progress, 3);
+      rotYRef.current = startRot + step * ease;
+      applyTransform();
+
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(anim);
+      } else {
+        rotYRef.current = targetRot;
+        applyTransform();
+        rafRef.current = 0;
+      }
+    };
+    rafRef.current = requestAnimationFrame(anim);
+  };
 
   const onPointerDown = (e) => {
     if (!drag) return;
     e.currentTarget.setPointerCapture?.(e.pointerId);
     dragRef.current = { active: true, x: e.clientX };
     velRef.current = 0;
+    setIsGrabbing(true);
+    startMomentumLoop();
   };
+
   const onPointerMove = (e) => {
     const d = dragRef.current;
     if (!d.active) return;
     const dx = e.clientX - d.x;
     d.x = e.clientX;
-    const k = 0.3 * sensitivity;
+    const k = 0.25 * sensitivity;
     rotYRef.current += dx * k;
     velRef.current = dx * k * 60;
+    applyTransform();
   };
+
   const onPointerUp = (e) => {
-    e.currentTarget.releasePointerCapture?.(e.pointerId);
+    try {
+      e.currentTarget.releasePointerCapture?.(e.pointerId);
+    } catch (_) {}
     dragRef.current.active = false;
+    setIsGrabbing(false);
   };
 
   const faceBase = {
@@ -304,75 +357,102 @@ const RoundCarousel = ({
   };
 
   return (
-    <div
-      style={{
-        ...style,
-        width: "100%",
-        height: "460px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        overflow: "hidden",
-        background,
-        perspective: `${perspective}px`,
-        cursor: drag ? "grab" : "default",
-        touchAction: "none",
-      }}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
-    >
+    <div className="relative w-full flex flex-col items-center select-none">
       <div
         style={{
-          transformStyle: "preserve-3d",
-          transform: `rotateX(${tilt}deg)`,
+          ...style,
+          width: "100%",
+          height: "460px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+          background,
+          perspective: `${perspective}px`,
+          cursor: drag ? (isGrabbing ? "grabbing" : "grab") : "default",
+          touchAction: "none",
         }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
       >
         <div
-          ref={ringRef}
           style={{
-            position: "relative",
-            width: imageWidth,
-            height: imageHeight,
             transformStyle: "preserve-3d",
+            transform: `rotateX(${tilt}deg)`,
           }}
         >
-          {items.map((img, i) => {
-            const src = typeof img === "string" ? img : img?.src;
-            return (
-              <div
-                key={i}
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  transform: `rotateY(${i * angle}deg) translateZ(${radius}px)`,
-                  transformStyle: "preserve-3d",
-                }}
-              >
+          <div
+            ref={ringRef}
+            style={{
+              position: "relative",
+              width: imageWidth,
+              height: imageHeight,
+              transformStyle: "preserve-3d",
+            }}
+          >
+            {items.map((img, i) => {
+              const src = typeof img === "string" ? img : img?.src;
+              return (
                 <div
+                  key={i}
                   style={{
-                    ...faceBase,
-                    backgroundColor: src ? "transparent" : "#222",
-                    backgroundImage: src ? `url(${src})` : undefined,
-                    boxShadow:
-                      "0 20px 50px rgba(0,0,0,0.7), 0 0 25px rgba(245,158,11,0.25)",
-                    border: "1px solid rgba(255,255,255,0.18)",
+                    position: "absolute",
+                    inset: 0,
+                    transform: `rotateY(${i * angle}deg) translateZ(${radius}px)`,
+                    transformStyle: "preserve-3d",
                   }}
-                />
-                <div
-                  style={{
-                    ...faceBase,
-                    transform: "rotateY(180deg)",
-                    backgroundColor: src ? "transparent" : "#181818",
-                    backgroundImage: src ? `url(${src})` : undefined,
-                    filter: `brightness(${innerDim / 10})`,
-                  }}
-                />
-              </div>
-            );
-          })}
+                >
+                  <div
+                    style={{
+                      ...faceBase,
+                      backgroundColor: src ? "transparent" : "#222",
+                      backgroundImage: src ? `url(${src})` : undefined,
+                      boxShadow:
+                        "0 20px 50px rgba(0,0,0,0.7), 0 0 25px rgba(245,158,11,0.25)",
+                      border: "1px solid rgba(255,255,255,0.18)",
+                    }}
+                  />
+                  <div
+                    style={{
+                      ...faceBase,
+                      transform: "rotateY(180deg)",
+                      backgroundColor: src ? "transparent" : "#181818",
+                      backgroundImage: src ? `url(${src})` : undefined,
+                      filter: `brightness(${innerDim / 10})`,
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
         </div>
+      </div>
+
+      {/* Manual Navigation Controls (Clean Left & Right Arrows) */}
+      <div className="flex items-center justify-center gap-3 mt-3 relative z-20">
+        <button
+          type="button"
+          onClick={() => rotateStep("left")}
+          className="w-10 h-10 rounded-full bg-neutral-900/90 hover:bg-neutral-800 text-neutral-300 hover:text-white border border-neutral-700/80 flex items-center justify-center cursor-pointer transition-all active:scale-95 shadow-md"
+          title="Rotate Left"
+        >
+          <LeftOutlined className="text-xs" />
+        </button>
+
+        <span className="text-[10px] font-mono tracking-widest uppercase text-neutral-500 px-2">
+          DRAG OR CLICK TO EXPLORE
+        </span>
+
+        <button
+          type="button"
+          onClick={() => rotateStep("right")}
+          className="w-10 h-10 rounded-full bg-neutral-900/90 hover:bg-neutral-800 text-neutral-300 hover:text-white border border-neutral-700/80 flex items-center justify-center cursor-pointer transition-all active:scale-95 shadow-md"
+          title="Rotate Right"
+        >
+          <RightOutlined className="text-xs" />
+        </button>
       </div>
     </div>
   );
@@ -687,6 +767,7 @@ const HomePage = ({
   loading = false,
   onQuickView,
   onAddToCart,
+  onBuyNow,
   wishlistItems = [],
   onToggleWishlist,
   onExploreCategory,
@@ -879,6 +960,7 @@ const HomePage = ({
                   product={product}
                   onQuickView={onQuickView}
                   onAddToCart={onAddToCart}
+                  onBuyNow={onBuyNow}
                   isWishlisted={wishlistItems.some((i) => i.id === product.id)}
                   onToggleWishlist={onToggleWishlist}
                 />
@@ -1168,12 +1250,12 @@ const HomePage = ({
             <span>JOIN OUR STYLE COMMUNITY</span>
           </h2>
           <p className="text-xs sm:text-sm text-neutral-400 max-w-lg mx-auto mt-2 font-light">
-            Drag or swipe left & right to rotate our 3D interactive Parisian
+            Drag left & right or use the controls to explore our 3D Parisian
             gallery showcase.
           </p>
         </div>
 
-        {/* Originkit 3D Round Carousel */}
+        {/* Originkit 3D Round Carousel (No Auto-Loop, Smooth Interactive Control) */}
         <RoundCarousel
           images={
             siteContent?.communityGalleryImages &&
@@ -1184,7 +1266,6 @@ const HomePage = ({
           imageWidth={260}
           imageHeight={320}
           spacing={2.5}
-          speed={5}
           tilt={-7}
         />
       </div>

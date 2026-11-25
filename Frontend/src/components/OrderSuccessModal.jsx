@@ -244,7 +244,7 @@ const OrderSuccessModal = ({
                 <CarOutlined className="text-amber-400 text-base" />
                 <span>TRACK LIVE DELIVERY</span>
                 <span className="bg-amber-400/20 text-amber-400 text-[10px] font-mono px-2 py-0.5 rounded-full border border-amber-400/30">
-                  🚚 LIVE
+                  LIVE
                 </span>
               </Button>
             )}
@@ -270,12 +270,21 @@ const OrderSuccessModal = ({
           </div>
 
           {/* Luxury Atelier Watermark / Guarantee */}
-          <div className="mt-4 pt-3 border-t border-neutral-100 flex items-center justify-center gap-3 text-[10px] uppercase tracking-wider text-neutral-400 font-medium">
-            <span>🛡️ 100% Authentic Guarantee</span>
+          <div className="mt-4 pt-3 border-t border-neutral-100 flex flex-wrap items-center justify-center gap-3 text-[10px] uppercase tracking-wider text-neutral-400 font-medium">
+            <span className="flex items-center gap-1">
+              <SafetyCertificateOutlined className="text-amber-500" />
+              <span>100% Authentic Guarantee</span>
+            </span>
             <span>•</span>
-            <span>🔒 Encrypted Checkout</span>
+            <span className="flex items-center gap-1">
+              <SafetyCertificateOutlined className="text-amber-500" />
+              <span>Encrypted Checkout</span>
+            </span>
             <span>•</span>
-            <span>✨ White-Glove Concierge</span>
+            <span className="flex items-center gap-1">
+              <CrownFilled className="text-amber-500 text-[10px]" />
+              <span>White-Glove Concierge</span>
+            </span>
           </div>
         </div>
       </Modal>

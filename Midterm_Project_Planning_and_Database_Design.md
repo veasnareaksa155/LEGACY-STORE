@@ -402,3 +402,4 @@ CREATE INDEX idx_orders_created_at ON orders(created_at DESC);
   If any step fails, the entire transaction rolls back automatically.
 * **Consistency & Isolation:** Foreign key constraints prevent orphaned records. Standard Read Committed transaction isolation protects against dirty reads during simultaneous checkouts.
 * **Durability:** Committed transactions are flushed immediately to persistent disk storage in PostgreSQL / MySQL write-ahead logs (WAL).
+

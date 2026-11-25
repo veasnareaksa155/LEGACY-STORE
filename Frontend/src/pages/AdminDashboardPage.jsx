@@ -95,6 +95,7 @@ import {
   getDeliverySettings,
   saveDeliverySettings,
 } from "../services/deliverySettings";
+import ReceiptModal from "../components/ReceiptModal";
 
 // Helper for category minimalist apparel SVG line icon (matching user's shirt icon design)
 const getCategoryIcon = (cat) => {
@@ -361,6 +362,8 @@ const AdminDashboardPage = ({
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [categoryForm] = Form.useForm();
+  const [uploadingCategoryCover, setUploadingCategoryCover] = useState(false);
+  const categoryCoverInputRef = useRef(null);
 
   // User Modal State (Create / Edit)
   const [userModalOpen, setUserModalOpen] = useState(false);
@@ -1495,6 +1498,29 @@ const AdminDashboardPage = ({
     }
   };
 
+  const handleCategoryCoverUpload = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    setUploadingCategoryCover(true);
+    try {
+      const result = await uploadToCloudinary(file, cloudinaryConfig);
+      if (result.success && result.url) {
+        categoryForm.setFieldsValue({ image_url: result.url });
+        notification.success({
+          message: "CATEGORY COVER UPLOADED",
+          description: "Category image uploaded to Cloudinary CDN successfully!",
+          placement: "bottomRight",
+        });
+      }
+    } catch (err) {
+      console.error("Category cover upload error:", err);
+    } finally {
+      setUploadingCategoryCover(false);
+      e.target.value = "";
+    }
+  };
+
   const handleOpenEditCategory = (cat) => {
     setEditingCategory(cat);
     categoryForm.setFieldsValue({
@@ -2150,10 +2176,10 @@ const AdminDashboardPage = ({
           }`}
         >
           {role === "admin"
-            ? "⚡ SUPERADMIN"
+            ? "SUPERADMIN"
             : role === "driver"
-              ? "🚚 DELIVERY DRIVER"
-              : "👤 VIP CLIENT"}
+              ? "DELIVERY DRIVER"
+              : "VIP CLIENT"}
         </span>
       ),
     },
@@ -2162,10 +2188,18 @@ const AdminDashboardPage = ({
       dataIndex: "tier",
       key: "tier",
       render: (tier, record) => (
-        <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 bg-amber-50 text-amber-900 border border-amber-300 rounded font-mono">
-          {record.role === "driver"
-            ? `🚚 COURIER ${record.vehicle_tag || "EXPRESS"}`
-            : `👑 ${tier || "BLACK DIAMOND VIP"}`}
+        <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 bg-amber-50 text-amber-900 border border-amber-300 rounded font-mono inline-flex items-center gap-1">
+          {record.role === "driver" ? (
+            <>
+              <CarOutlined className="text-amber-700" />
+              <span>COURIER {record.vehicle_tag || "EXPRESS"}</span>
+            </>
+          ) : (
+            <>
+              <CrownOutlined className="text-amber-600" />
+              <span>{tier || "BLACK DIAMOND VIP"}</span>
+            </>
+          )}
         </span>
       ),
     },
@@ -2226,7 +2260,7 @@ const AdminDashboardPage = ({
       render: (name, record) => (
         <div className="flex items-center space-x-3">
           <div className="w-9 h-9 rounded-full bg-blue-900 text-blue-200 border border-blue-700 flex items-center justify-center font-bold text-sm shadow-xs">
-            🚚
+            <CarOutlined />
           </div>
           <div>
             <span className="font-bold text-xs uppercase text-black block">
@@ -2245,7 +2279,8 @@ const AdminDashboardPage = ({
       key: "vehicle_tag",
       render: (tag) => (
         <span className="text-xs font-mono font-black uppercase px-3 py-1 bg-blue-50 text-blue-900 border border-blue-200 rounded-lg inline-flex items-center gap-1 shadow-xs">
-          🚗 {tag || "PP-9921 (EXPRESS)"}
+          <CarOutlined />
+          <span>{tag || "PP-9921 (EXPRESS)"}</span>
         </span>
       ),
     },
@@ -2254,8 +2289,9 @@ const AdminDashboardPage = ({
       dataIndex: "phone",
       key: "phone",
       render: (phone) => (
-        <span className="text-xs font-mono font-bold text-neutral-800">
-          📞 {phone || "+855 12 888 999"}
+        <span className="text-xs font-mono font-bold text-neutral-800 inline-flex items-center">
+          <PhoneOutlined className="mr-1 text-neutral-500" />
+          <span>{phone || "+855 12 888 999"}</span>
         </span>
       ),
     },
@@ -2529,6 +2565,16 @@ const AdminDashboardPage = ({
 
         {/* Sidebar Footer Actions */}
         <div className="p-5 sm:p-6 border-t border-neutral-800 space-y-2">
+          {onNavigateStore && (
+            <button
+              onClick={onNavigateStore}
+              className="w-full bg-white hover:bg-neutral-200 text-black px-4 py-3 rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md"
+              title="Return to Customer Storefront"
+            >
+              <ShopOutlined />
+              <span>VIEW BOUTIQUE</span>
+            </button>
+          )}
           {onLogout && (
             <button
               onClick={onLogout}
@@ -2556,6 +2602,18 @@ const AdminDashboardPage = ({
           </div>
 
           <div className="flex items-center space-x-3">
+            {onNavigateStore && (
+              <button
+                type="button"
+                onClick={onNavigateStore}
+                className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-neutral-100 hover:bg-black hover:text-white text-neutral-800 text-xs font-bold transition-all border border-neutral-200 cursor-pointer shadow-2xs"
+                title="Return to Customer Storefront"
+              >
+                <ShopOutlined />
+                <span>Boutique Storefront</span>
+              </button>
+            )}
+
             {/* Notification Bell Center Button */}
             <button
               type="button"
@@ -2898,9 +2956,9 @@ const AdminDashboardPage = ({
                       className="w-36 h-10 font-medium text-xs"
                       options={[
                         { value: "all", label: "All Categories" },
-                        { value: "shirt", label: "👔 Shirts" },
-                        { value: "t-shirt", label: "👕 T-Shirts" },
-                        { value: "shoes", label: "👟 Shoes" },
+                        { value: "shirt", label: "Shirts" },
+                        { value: "t-shirt", label: "T-Shirts" },
+                        { value: "shoes", label: "Shoes" },
                       ]}
                     />
 
@@ -2911,11 +2969,11 @@ const AdminDashboardPage = ({
                       className="w-36 h-10 font-medium text-xs"
                       options={[
                         { value: "all", label: "All Stock" },
-                        { value: "in_stock", label: "✓ In Stock" },
-                        { value: "low_stock", label: "⚠️ Low Stock" },
-                        { value: "out_of_stock", label: "🚨 Out of Stock" },
-                        { value: "hot_drop", label: "🔥 Hot Drops" },
-                        { value: "new_arrival", label: "✨ New Drops" },
+                        { value: "in_stock", label: "In Stock" },
+                        { value: "low_stock", label: "Low Stock" },
+                        { value: "out_of_stock", label: "Out of Stock" },
+                        { value: "hot_drop", label: "Hot Drops" },
+                        { value: "new_arrival", label: "New Drops" },
                       ]}
                     />
 
@@ -3719,7 +3777,8 @@ const AdminDashboardPage = ({
                         : "bg-neutral-900/70 text-neutral-400 hover:text-white hover:bg-neutral-800"
                     }`}
                   >
-                    <span>📸 3D Style Community Carousel</span>
+                    <CameraOutlined className="text-amber-400" />
+                    <span>3D Style Community Carousel</span>
                     <span
                       className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
                         siteContentSubTab === "community"
@@ -3739,7 +3798,8 @@ const AdminDashboardPage = ({
                         : "bg-neutral-900/70 text-neutral-400 hover:text-white hover:bg-neutral-800"
                     }`}
                   >
-                    <span>🖼️ Hero Vertical Marquee</span>
+                    <PictureOutlined className="text-amber-400" />
+                    <span>Hero Vertical Marquee</span>
                     <span
                       className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
                         siteContentSubTab === "hero"
@@ -3759,7 +3819,8 @@ const AdminDashboardPage = ({
                         : "bg-neutral-900/70 text-neutral-400 hover:text-white hover:bg-neutral-800"
                     }`}
                   >
-                    <span>❓ Hover FAQ Accordion</span>
+                    <QuestionCircleOutlined className="text-amber-400" />
+                    <span>Hover FAQ Accordion</span>
                     <span
                       className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
                         siteContentSubTab === "faqs"
@@ -3779,7 +3840,8 @@ const AdminDashboardPage = ({
                         : "bg-neutral-900/70 text-neutral-400 hover:text-white hover:bg-neutral-800"
                     }`}
                   >
-                    <span>⭐ Client Testimonials & Impact</span>
+                    <StarFilled className="text-amber-400" />
+                    <span>Client Testimonials & Impact</span>
                     <span
                       className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
                         siteContentSubTab === "testimonials"
@@ -4745,15 +4807,51 @@ const AdminDashboardPage = ({
           <Form.Item
             label={
               <span className="text-xs font-bold uppercase text-neutral-700">
-                Category Cover Image URL (Optional)
+                Category Cover Image (Cloudinary CDN)
               </span>
             }
             name="image_url"
           >
-            <Input
-              placeholder="https://images.unsplash.com/... (High-fashion cover image)"
-              className="text-xs py-2 rounded-md font-mono"
-            />
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="https://images.unsplash.com/... or upload photo"
+                  className="text-xs py-2 rounded-md font-mono"
+                />
+                <Button
+                  icon={<CloudUploadOutlined />}
+                  loading={uploadingCategoryCover}
+                  onClick={() => categoryCoverInputRef.current?.click()}
+                  className="bg-neutral-900 text-white font-bold text-xs uppercase px-3 rounded-lg shrink-0"
+                >
+                  Upload Cloudinary
+                </Button>
+              </div>
+              <Form.Item
+                noStyle
+                shouldUpdate={(prev, cur) => prev.image_url !== cur.image_url}
+              >
+                {({ getFieldValue }) => {
+                  const img = getFieldValue("image_url");
+                  return img ? (
+                    <div className="w-full h-24 rounded-lg overflow-hidden bg-neutral-900 border border-neutral-200">
+                      <img
+                        src={img}
+                        alt="Category Preview"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : null;
+                }}
+              </Form.Item>
+              <input
+                type="file"
+                ref={categoryCoverInputRef}
+                accept="image/*"
+                onChange={handleCategoryCoverUpload}
+                style={{ display: "none" }}
+              />
+            </div>
           </Form.Item>
 
           <Form.Item
@@ -5065,8 +5163,8 @@ const AdminDashboardPage = ({
                           {uploadingCover ? (
                             <div className="w-full h-full flex flex-col items-center justify-center text-amber-400 gap-1 bg-black/80 z-30">
                               <span className="w-6 h-6 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></span>
-                              <span className="text-xs font-mono font-bold">
-                                Uploading to Cloudinary... ☁️
+                              <span className="text-xs font-mono font-bold flex items-center gap-1.5">
+                                <CloudUploadOutlined /> Uploading to Cloudinary...
                               </span>
                             </div>
                           ) : mainCoverUrl ? (
@@ -5095,7 +5193,7 @@ const AdminDashboardPage = ({
                             </span>
                             {assignedCoverColor && (
                               <span className="bg-black/90 text-amber-300 border border-amber-400/50 text-[9px] font-mono font-black uppercase px-1.5 py-0.5 rounded shadow flex items-center gap-1">
-                                <span>🎨</span>
+                                <span className="w-2 h-2 rounded-full bg-amber-400"></span>
                                 <span>{assignedCoverColor}</span>
                               </span>
                             )}
@@ -5105,8 +5203,8 @@ const AdminDashboardPage = ({
                           {!uploadingCover && (
                             <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px] opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center text-white gap-1 z-20">
                               <UploadOutlined className="text-2xl text-amber-400" />
-                              <span className="text-xs font-black uppercase tracking-wider">
-                                Upload to Cloudinary ☁️
+                              <span className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
+                                <CloudUploadOutlined /> Upload to Cloudinary
                               </span>
                             </div>
                           )}
@@ -5141,7 +5239,7 @@ const AdminDashboardPage = ({
                               onClick={autoFillMultiAngles}
                               className="text-[10px] text-emerald-700 hover:text-emerald-900 font-bold bg-emerald-50 hover:bg-emerald-100 rounded px-2 py-0.5"
                             >
-                              ✨ Presets
+                              Presets
                             </Button>
                             <Button
                               type="primary"
@@ -5151,10 +5249,10 @@ const AdminDashboardPage = ({
                                 galleryInputRef.current &&
                                 galleryInputRef.current.click()
                               }
-                              icon={<UploadOutlined />}
+                              icon={<CloudUploadOutlined />}
                               className="text-[10px] bg-black hover:bg-neutral-800 font-bold rounded px-2.5"
                             >
-                              ☁️ Upload Cloudinary
+                              Upload Cloudinary
                             </Button>
                           </div>
                         </div>
@@ -5186,7 +5284,7 @@ const AdminDashboardPage = ({
                                   <div className="w-full h-full flex flex-col items-center justify-center text-amber-400 gap-1 bg-black/80 p-1 text-center">
                                     <span className="w-5 h-5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></span>
                                     <span className="text-[8px] font-mono font-bold">
-                                      Cloudinary... ☁️
+                                      Cloudinary...
                                     </span>
                                   </div>
                                 ) : (
@@ -5207,8 +5305,9 @@ const AdminDashboardPage = ({
                                     #{idx + 1}
                                   </span>
                                   {assignedCardColor && (
-                                    <span className="bg-amber-400 text-black text-[8px] font-mono font-black uppercase px-1.5 py-0.2 rounded shadow">
-                                      🎨 {assignedCardColor}
+                                    <span className="bg-amber-400 text-black text-[8px] font-mono font-black uppercase px-1.5 py-0.2 rounded shadow flex items-center gap-1">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-black"></span>
+                                      <span>{assignedCardColor}</span>
                                     </span>
                                   )}
                                 </div>
@@ -5254,8 +5353,8 @@ const AdminDashboardPage = ({
                                     title="Click to replace this photo file on Cloudinary"
                                   >
                                     <UploadOutlined className="text-base text-amber-400 mb-0.5" />
-                                    <span className="text-[9px] font-black uppercase tracking-wider">
-                                      Replace ☁️
+                                    <span className="text-[9px] font-black uppercase tracking-wider flex items-center gap-1">
+                                      <CloudUploadOutlined /> Replace
                                     </span>
                                   </div>
                                 )}
@@ -5559,7 +5658,8 @@ const AdminDashboardPage = ({
                             disabled={allImagesList.length === 0}
                             className="bg-amber-400 hover:bg-amber-300 text-black font-extrabold text-[10px] rounded px-2 border-none h-6 flex items-center gap-1 shadow-sm"
                           >
-                            ✨ Auto-Link in Order
+                            <ThunderboltOutlined />
+                            <span>Auto-Link in Order</span>
                           </Button>
                           {Object.keys(colorImagesMap).length > 0 && (
                             <Button
@@ -5662,8 +5762,9 @@ const AdminDashboardPage = ({
               <div className="grid grid-cols-2 gap-2.5 pt-1">
                 <div className="bg-amber-50/70 p-2.5 rounded-xl border border-amber-200/80 flex items-center justify-between">
                   <div>
-                    <span className="text-[11px] font-black uppercase tracking-wider block text-amber-900 flex items-center gap-1">
-                      <span>🔥</span> HOT DROP
+                    <span className="text-[11px] font-black uppercase tracking-wider block text-amber-900 flex items-center gap-1.5">
+                      <ThunderboltOutlined className="text-amber-600 text-xs" />
+                      <span>HOT DROP</span>
                     </span>
                     <span className="text-[9px] text-amber-700/80 block font-light">
                       Highlight in featured drops
@@ -5676,8 +5777,9 @@ const AdminDashboardPage = ({
 
                 <div className="bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-200/80 flex items-center justify-between">
                   <div>
-                    <span className="text-[11px] font-black uppercase tracking-wider block text-emerald-900 flex items-center gap-1">
-                      <span>✨</span> NEW ARRIVAL
+                    <span className="text-[11px] font-black uppercase tracking-wider block text-emerald-900 flex items-center gap-1.5">
+                      <CrownOutlined className="text-emerald-700 text-xs" />
+                      <span>NEW ARRIVAL</span>
                     </span>
                     <span className="text-[9px] text-emerald-700/80 block font-light">
                       Mark as new release tag
@@ -6130,6 +6232,13 @@ const AdminDashboardPage = ({
           </div>
         </Form>
       </Modal>
+
+      {/* Official Luxury Order Receipt Modal */}
+      <ReceiptModal
+        open={!!selectedOrderDetails}
+        onClose={() => setSelectedOrderDetails(null)}
+        order={selectedOrderDetails}
+      />
 
       {/* Global Hidden File Input for Site Asset Uploads via Cloudinary */}
       <input

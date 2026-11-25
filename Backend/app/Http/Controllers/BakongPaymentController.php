@@ -23,7 +23,7 @@ class BakongPaymentController extends Controller
         // Bakong Configuration with verified defaults
         $merchantId = env('BAKONG_MERCHANT_ID', 'veasna_reaksa@bkrt');
         $merchantName = env('BAKONG_MERCHANT_NAME', 'REAKSA VEASNA');
-        $billNumber = 'LX' . str_pad($orderId, 6, '0', STR_PAD_LEFT);
+        $billNumber = 'LX' . str_pad((string)$orderId, 6, '0', STR_PAD_LEFT);
 
         try {
             $qrData = $this->buildEMVCoKHQR($merchantId, $merchantName, $amount, $billNumber, $currency);
@@ -261,31 +261,9 @@ class BakongPaymentController extends Controller
                             ]);
                         }
 
-                        // If NBC Developer Quota is reached (100 req/day limit), verify customer payout window
+                        // If NBC Developer Quota is reached (100 req/day limit), do NOT falsely confirm during polling
                         if ($errorCode === 17 || str_contains($resData['responseMessage'] ?? '', 'Daily request limit')) {
-                            // Check elapsed seconds since order creation to allow customer ample time to scan & approve
-                            if (!empty($orderId)) {
-                                $order = Order::where('id', $orderId)->orWhere('order_number', $orderId)->first();
-                                if ($order) {
-                                    $elapsed = now()->diffInSeconds($order->created_at);
-                                    // Only auto-confirm after at least 12 seconds have elapsed (ensuring user actually had time to scan and pay)
-                                    if ($elapsed >= 12) {
-                                        Log::info("Bakong quota mode: confirming Order ID {$orderId} after {$elapsed}s payout window");
-                                        $order->status = 'processing';
-                                        $order->delivery_status = 'processing';
-                                        $order->payment_method = 'bakong';
-                                        $order->save();
-
-                                        return response()->json([
-                                            'status' => 'success',
-                                            'paid' => true,
-                                            'message' => 'Payment confirmed on Bakong KHQR network!',
-                                            'md5' => $checkHash
-                                        ]);
-                                    }
-                                }
-                            }
-                            Log::warning("Bakong Open API daily request limit reached (100 req/day). Awaiting customer payout window.");
+                            Log::warning("Bakong Open API daily request limit reached (100 req/day). Awaiting genuine customer payout or NBC webhook.");
                             break;
                         }
                     }
@@ -295,7 +273,7 @@ class BakongPaymentController extends Controller
             }
         }
 
-        // 2. If user explicitly clicked manual verification or button confirm
+        // 2. If user explicitly clicked manual verification (e.g. from debug test tool)
         if ($isManual) {
             if (!empty($orderId)) {
                 try {

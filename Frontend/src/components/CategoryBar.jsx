@@ -151,7 +151,7 @@ const CategoryBar = ({
                       }}
                       className="px-2.5 py-1 bg-white hover:bg-neutral-200 text-neutral-800 text-[10px] font-bold rounded-full uppercase border border-neutral-200 shrink-0 cursor-pointer"
                     >
-                      👔 SHIRTS
+                      SHIRTS
                     </button>
                     <button
                       onClick={() => {
@@ -160,7 +160,7 @@ const CategoryBar = ({
                       }}
                       className="px-2.5 py-1 bg-white hover:bg-neutral-200 text-neutral-800 text-[10px] font-bold rounded-full uppercase border border-neutral-200 shrink-0 cursor-pointer"
                     >
-                      👕 T-SHIRTS
+                      T-SHIRTS
                     </button>
                     <button
                       onClick={() => {
@@ -169,7 +169,7 @@ const CategoryBar = ({
                       }}
                       className="px-2.5 py-1 bg-white hover:bg-neutral-200 text-neutral-800 text-[10px] font-bold rounded-full uppercase border border-neutral-200 shrink-0 cursor-pointer"
                     >
-                      👟 SHOES
+                      SHOES
                     </button>
                   </div>
 

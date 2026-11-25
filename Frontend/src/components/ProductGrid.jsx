@@ -9,6 +9,7 @@ const ProductGrid = ({
   onSortChange,
   onQuickView,
   onAddToCart,
+  onBuyNow,
   activeCategory,
   wishlistItems = [],
   onToggleWishlist,
@@ -107,6 +108,7 @@ const ProductGrid = ({
                 product={product}
                 onQuickView={onQuickView}
                 onAddToCart={onAddToCart}
+                onBuyNow={onBuyNow}
                 isWishlisted={wishlistIds.has(product.id)}
                 onToggleWishlist={onToggleWishlist}
               />

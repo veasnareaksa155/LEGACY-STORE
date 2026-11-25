@@ -112,10 +112,11 @@ class OrderController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $query = Order::with('items')->orderBy('created_at', 'desc');
+        $query = Order::with(['items.product'])->orderBy('created_at', 'desc');
 
         if ($request->has('email') && !empty($request->email)) {
-            $query->where('customer_email', $request->email);
+            $email = strtolower(trim($request->email));
+            $query->whereRaw('LOWER(TRIM(customer_email)) = ?', [$email]);
         }
 
         $orders = $query->get();
@@ -165,10 +166,13 @@ class OrderController extends Controller
      */
     public function getDeliveryStatus($idOrNumber): JsonResponse
     {
-        $order = Order::with('items')
-            ->where('id', $idOrNumber)
-            ->orWhere('order_number', $idOrNumber)
-            ->first();
+        $query = Order::with(['items.product']);
+        if (is_numeric($idOrNumber)) {
+            $query->where('id', (int) $idOrNumber)->orWhere('order_number', $idOrNumber);
+        } else {
+            $query->where('order_number', $idOrNumber);
+        }
+        $order = $query->first();
 
         if (!$order) {
             return response()->json(['success' => false, 'message' => 'Order not found'], 404);

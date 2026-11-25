@@ -35,7 +35,7 @@ class UserController extends Controller
             ], 404);
         }
 
-        if (Hash::check($validated['password'], $user->password) || $validated['password'] === 'password123') {
+        if (Hash::check($validated['password'], $user->password)) {
             return response()->json([
                 'success' => true,
                 'message' => 'Login successful',
@@ -144,7 +144,14 @@ class UserController extends Controller
 
         $rawPassword = !empty($validated['password']) ? $validated['password'] : 'password123';
         $validated['password'] = Hash::make($rawPassword);
-        $validated['role'] = $validated['role'] ?? 'user';
+
+        // Security: Prevent privilege escalation on registration endpoints
+        if ($request->is('*register*')) {
+            $validated['role'] = 'user';
+        } else {
+            $validated['role'] = $validated['role'] ?? 'user';
+        }
+
         $validated['tier'] = $validated['role'] === 'driver' ? 'COURIER DRIVER' : ($validated['tier'] ?? 'BLACK DIAMOND VIP');
 
         $user = User::create($validated);

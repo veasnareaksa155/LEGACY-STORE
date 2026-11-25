@@ -6,7 +6,6 @@ import {
   MailOutlined,
   ArrowRightOutlined,
   SafetyCertificateOutlined,
-  KeyOutlined,
   ArrowLeftOutlined,
   CloseOutlined,
 } from "@ant-design/icons";
@@ -20,17 +19,47 @@ const AdminAuthModal = ({ open, onClose, onLoginSuccess }) => {
   const handleAdminLogin = async (values) => {
     setLoading(true);
     try {
+      const email = (values.email || "").trim().toLowerCase();
+      const password = values.password || "";
+
+      if (!email || !password) {
+        notification.error({
+          message: "VALIDATION ERROR",
+          description: "Please enter both administrator email and passkey.",
+          placement: "bottomRight",
+          duration: 3,
+        });
+        setLoading(false);
+        return;
+      }
+
       const res = await loginUser({
-        email: values.email,
-        password: values.password || "adminpassword",
+        email,
+        password,
       });
 
-      const apiUser = res.data || res;
+      const apiUser = res?.data || res;
+
+      // CRITICAL SECURITY ENFORCEMENT: Only verified backend role === 'admin' can enter
+      if (!apiUser || apiUser.role !== "admin") {
+        notification.error({
+          message: "UNAUTHORIZED ACCESS",
+          description:
+            "Access Denied: This account does not possess SuperAdmin privileges.",
+          placement: "bottomRight",
+          duration: 4,
+        });
+        setLoading(false);
+        return;
+      }
+
       const userData = {
-        id: apiUser.id || Date.now(),
+        id: apiUser.id,
         role: "admin",
         name: apiUser.name || "SuperAdmin Legacy",
-        email: apiUser.email || values.email,
+        email: apiUser.email || email,
+        avatar: apiUser.avatar || apiUser.avatar_url || null,
+        avatar_url: apiUser.avatar_url || apiUser.avatar || null,
       };
 
       notification.success({
@@ -45,41 +74,20 @@ const AdminAuthModal = ({ open, onClose, onLoginSuccess }) => {
         onLoginSuccess(userData);
       }
     } catch (error) {
-      console.warn("Fallback admin login:", error);
-      const userData = {
-        id: Date.now(),
-        role: "admin",
-        name: "SuperAdmin Legacy",
-        email: values.email || "admin@legacystore.com",
-      };
+      console.error("Admin authentication error:", error);
+      const errorMsg =
+        error.response?.data?.message ||
+        "Invalid administrator email or passkey. Access rejected.";
 
-      notification.success({
-        message: "EXECUTIVE ACCESS GRANTED",
-        description:
-          "Authenticated successfully. Welcome to Admin Management Panel.",
+      notification.error({
+        message: "AUTHENTICATION FAILED",
+        description: errorMsg,
         placement: "bottomRight",
-        duration: 2.5,
+        duration: 4,
       });
-
-      if (onLoginSuccess) {
-        onLoginSuccess(userData);
-      }
     } finally {
       setLoading(false);
     }
-  };
-
-  const autofillCredentials = () => {
-    form.setFieldsValue({
-      email: "admin@legacystore.com",
-      password: "adminpassword",
-    });
-    notification.info({
-      message: "CREDENTIALS FILLED",
-      description: "SuperAdmin email and passkey loaded.",
-      placement: "bottomRight",
-      duration: 1.5,
-    });
   };
 
   const modalContent = (
@@ -107,21 +115,10 @@ const AdminAuthModal = ({ open, onClose, onLoginSuccess }) => {
             ADMIN PORTAL ACCESS
           </h2>
           <p className="text-xs text-neutral-400 font-light max-w-xs mx-auto mt-1.5 leading-relaxed">
-            Enter administrative key credentials to access inventory control,
-            orders management, and analytics.
+            Enter administrative credentials to access boutique inventory,
+            customer orders, and executive operations.
           </p>
         </div>
-
-        {/* Quick Auto-fill Credential Pill */}
-        <button
-          type="button"
-          onClick={autofillCredentials}
-          className="bg-neutral-900/90 hover:bg-neutral-800 text-amber-300 hover:text-amber-200 border border-amber-500/30 hover:border-amber-400/60 px-3.5 py-1.5 rounded-full text-[11px] font-mono font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
-          title="Click to load default superadmin credentials"
-        >
-          <KeyOutlined className="text-amber-400 text-xs" />
-          <span>Autofill SuperAdmin Credentials</span>
-        </button>
       </div>
 
       {/* Login Form */}
@@ -129,8 +126,8 @@ const AdminAuthModal = ({ open, onClose, onLoginSuccess }) => {
         form={form}
         layout="vertical"
         initialValues={{
-          email: "admin@legacystore.com",
-          password: "adminpassword",
+          email: "",
+          password: "",
         }}
         onFinish={handleAdminLogin}
         className="relative z-10 text-left pt-5 space-y-4"

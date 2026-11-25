@@ -465,7 +465,7 @@ const DeliveryDriverPage = ({ onNavigateHome }) => {
                 {isDriving ? (
                   <>
                     <PauseCircleOutlined className="text-base" />
-                    <span>GPS DRIVE SIMULATION ACTIVE (LIVE MOVING 🚚)</span>
+                    <span>GPS DRIVE SIMULATION ACTIVE (LIVE MOVING)</span>
                   </>
                 ) : (
                   <>

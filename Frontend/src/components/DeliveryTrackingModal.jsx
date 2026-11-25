@@ -123,14 +123,14 @@ const DeliveryTrackingModal = ({
 
   const getPaymentBadge = (method) => {
     const m = (method || "card").toLowerCase();
-    if (m.includes("khqr") || m.includes("qr") || m.includes("aba")) {
+    if (m.includes("khqr") || m.includes("qr") || m.includes("aba") || m.includes("bakong")) {
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-red-50 text-red-700 border border-red-200 text-[11px] font-mono font-bold">
-          <QrcodeOutlined /> KHQR Instant Pay
+          <QrcodeOutlined /> BAKONG KHQR
         </span>
       );
     }
-    if (m.includes("cod") || m.includes("cash")) {
+    if (m.includes("cod") || m.includes("cash") || m.includes("doorstep") || m.includes("delivery")) {
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-mono font-bold">
           <DollarOutlined /> Cash on Delivery
@@ -248,7 +248,7 @@ const DeliveryTrackingModal = ({
               color="emerald"
               className="bg-emerald-600 text-white font-mono font-bold uppercase tracking-wider text-[10px] px-2.5 py-1 rounded-md border-none shrink-0"
             >
-              ARRIVED ✅
+              ARRIVED
             </Tag>
           </div>
         )}
@@ -269,7 +269,7 @@ const DeliveryTrackingModal = ({
               },
               {
                 title: "OUT FOR DELIVERY",
-                description: "Courier On Way 🚚",
+                description: "Courier On Way",
               },
               {
                 title: "DELIVERED",
@@ -387,7 +387,7 @@ const DeliveryTrackingModal = ({
                   : "bg-amber-500 text-black"
               }`}
             >
-              {currentStep === 3 ? "✅ ARRIVED AT LOCATION" : "🚚 COURIER LIVE"}
+              {currentStep === 3 ? "ARRIVED AT LOCATION" : "COURIER LIVE"}
             </span>
           </div>
 
@@ -415,10 +415,13 @@ const DeliveryTrackingModal = ({
 
           {/* Bottom Live Map Badge */}
           <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between pointer-events-none">
-            <span className="bg-black/80 backdrop-blur-md text-white text-[9px] font-mono px-2 py-1 rounded border border-white/20">
-              {currentStep === 3
-                ? "📍 Package Arrived • Location Destination Verified"
-                : "📍 Phnom Penh Delivery Zone • Live GPS Satellite Active"}
+            <span className="bg-black/80 backdrop-blur-md text-white text-[9px] font-mono px-2 py-1 rounded border border-white/20 inline-flex items-center gap-1">
+              <EnvironmentOutlined className="text-amber-400 text-xs" />
+              <span>
+                {currentStep === 3
+                  ? "Package Arrived • Location Destination Verified"
+                  : "Phnom Penh Delivery Zone • Live GPS Satellite Active"}
+              </span>
             </span>
             {onNavigateDriverApp && (
               <button
@@ -493,7 +496,7 @@ const DeliveryTrackingModal = ({
               </h4>
             </div>
             <span className="text-[10px] font-mono text-neutral-500">
-              Luxury Inserts Included ✨
+              Luxury Inserts Included
             </span>
           </div>
 

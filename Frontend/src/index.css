@@ -607,24 +607,33 @@ html body .ant-modal-close:hover .anticon {
   border-radius: 24px !important;
   padding: 0 !important;
   overflow: hidden !important;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35) !important;
-  border: 1px solid rgba(220, 38, 38, 0.25) !important;
+  box-shadow: 0 25px 60px -15px rgba(225, 25, 41, 0.25), 0 0 0 1px rgba(225, 25, 41, 0.15) !important;
+  border: 1px solid rgba(225, 25, 41, 0.2) !important;
+  background: #ffffff !important;
 }
 
 .bakong-khqr-modal .ant-modal-close {
-  top: 12px !important;
+  top: 14px !important;
   right: 14px !important;
-  background: rgba(255, 255, 255, 0.92) !important;
-  color: #991b1b !important;
+  background: rgba(255, 255, 255, 0.25) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  color: #ffffff !important;
   border-radius: 9999px !important;
-  width: 28px !important;
-  height: 28px !important;
+  width: 32px !important;
+  height: 32px !important;
   z-index: 50 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s ease !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
 }
 
 .bakong-khqr-modal .ant-modal-close:hover {
   background: #ffffff !important;
-  color: #000000 !important;
+  color: #d91424 !important;
+  transform: scale(1.08);
 }
 
 @media (max-width: 639px) {
@@ -841,3 +850,203 @@ html body .ant-modal-close:hover .anticon {
 .animate-marquee-vertical:hover {
   animation-play-state: paused;
 }
+
+/* =============================================================
+   LUXURY VIP CLIENT PORTAL TABLE & PAGINATION CUSTOM STYLES
+   ============================================================= */
+.luxury-portal-table .ant-table {
+  background: transparent !important;
+  font-family: "Plus Jakarta Sans", sans-serif !important;
+}
+
+.luxury-portal-table .ant-table-thead > tr > th {
+  background: #fbfbfb !important;
+  color: #171717 !important;
+  font-family: "Plus Jakarta Sans", monospace !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  border-bottom: 1px solid #e5e5e5 !important;
+  padding: 14px 18px !important;
+}
+
+.luxury-portal-table .ant-table-tbody > tr > td {
+  padding: 16px 18px !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+  transition: background-color 0.2s ease !important;
+}
+
+.luxury-portal-table .ant-table-tbody > tr:hover > td {
+  background: #fafafa !important;
+}
+
+.luxury-portal-table .ant-pagination .ant-pagination-item-active {
+  background: #000000 !important;
+  border-color: #000000 !important;
+}
+
+.luxury-portal-table .ant-pagination .ant-pagination-item-active a {
+  color: #ffffff !important;
+}
+
+.luxury-portal-table .ant-pagination .ant-pagination-item {
+  border-radius: 8px !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+  font-family: monospace !important;
+}
+
+.luxury-portal-table .ant-pagination .ant-pagination-prev .ant-pagination-item-link,
+.luxury-portal-table .ant-pagination .ant-pagination-next .ant-pagination-item-link {
+  border-radius: 8px !important;
+}
+
+@keyframes scaleIn {
+  0% {
+    transform: scale(0.88);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ========================================================
+   LUXURY SPLIT CHECKOUT MODAL REFINEMENTS
+   ======================================================== */
+.luxury-checkout-split-modal .ant-modal-content {
+  border-radius: 24px !important;
+  padding: 24px 28px 28px !important;
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 30px 70px -15px rgba(0, 0, 0, 0.25) !important;
+  overflow: hidden !important;
+}
+
+@media (max-width: 639px) {
+  .luxury-checkout-split-modal .ant-modal-content {
+    border-radius: 18px !important;
+    padding: 18px 16px 20px !important;
+  }
+}
+
+.luxury-checkout-split-modal .ant-modal-header {
+  background: transparent !important;
+  margin-bottom: 12px !important;
+  border-bottom: none !important;
+}
+
+.luxury-checkout-split-modal .ant-modal-body {
+  max-height: 85vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #d4d4d4 transparent;
+  padding-right: 4px;
+}
+
+.luxury-checkout-split-modal .ant-modal-body::-webkit-scrollbar {
+  width: 5px;
+}
+
+.luxury-checkout-split-modal .ant-modal-body::-webkit-scrollbar-thumb {
+  background-color: #d4d4d4;
+  border-radius: 9999px;
+}
+
+@keyframes fadeInLuxe {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeInLuxe 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Luxury Real-Life Receipt Modal Overrides */
+.luxury-real-receipt-modal .ant-modal-content {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+
+.luxury-real-receipt-modal .ant-modal-body {
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+/* Real-Life Receipt Print Styles */
+@media print {
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* When printing directly, hide page background & interactive controls */
+  .print-controls-bar,
+  .ant-modal-mask,
+  .ant-modal-close,
+  nav,
+  header,
+  footer,
+  .luxe-vip-notification,
+  .luxe-bottom-nav,
+  .luxe-mobile-drawer {
+    display: none !important;
+  }
+
+  .ant-modal-wrap {
+    position: static !important;
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+  }
+
+  .ant-modal {
+    max-width: 100% !important;
+    width: 100% !important;
+    top: 0 !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+  }
+
+  .receipt-ticket-printable-root {
+    display: block !important;
+    visibility: visible !important;
+    box-shadow: none !important;
+    border: 1px solid #d4d0c8 !important;
+    margin: 0 auto !important;
+    max-width: 580px !important;
+  }
+
+  /* Invert dark notches into pure white paper cutouts in print */
+  .receipt-ticket-printable-root [class*="-left-9"],
+  .receipt-ticket-printable-root [class*="-right-9"] {
+    background-color: #ffffff !important;
+    border-color: #d4d0c8 !important;
+    box-shadow: none !important;
+  }
+}
+
+
+

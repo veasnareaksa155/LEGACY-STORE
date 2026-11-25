@@ -26,6 +26,7 @@ import ContactPage from "./pages/ContactPage";
 import UserAccountPage from "./pages/UserAccountPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import DeliveryDriverPage from "./pages/DeliveryDriverPage";
+import NotFoundPage from "./pages/NotFoundPage";
 
 notification.config({
   placement: "bottomRight",
@@ -59,8 +60,9 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("latest");
 
-  // Multi-Page SPA View State ('home' | 'shop' | 'about' | 'lookbook' | 'contact')
+  // Multi-Page SPA View State ('home' | 'shop' | 'about' | 'lookbook' | 'contact' | 'account' | 'admin' | 'delivery' | '404')
   const [activePage, setActivePage] = useState("home");
+  const [invalidRoutePath, setInvalidRoutePath] = useState("");
 
   // Modals & Drawers state
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -101,8 +103,13 @@ function App() {
   });
 
   const [userSessionRole, setUserSessionRole] = useState(() => {
-    return currentUser?.role || "user";
+    return currentUser?.role === "admin" ? "admin" : "user";
   });
+
+  // Keep userSessionRole strictly synchronized with currentUser state
+  useEffect(() => {
+    setUserSessionRole(currentUser?.role === "admin" ? "admin" : "user");
+  }, [currentUser]);
 
   // Save current user to localStorage
   useEffect(() => {
@@ -341,6 +348,21 @@ function App() {
     }
   };
 
+  const handleBuyNow = (product, size, color) => {
+    handleAddToCart(product, size, color, 1);
+    if (!currentUser) {
+      setAuthModalOpen(true);
+      notification.info({
+        message: "ACCOUNT REQUIRED TO CHECKOUT",
+        description: "Please sign in or register to complete your instant VIP purchase.",
+        placement: "bottomRight",
+        duration: 3.5,
+      });
+    } else {
+      setCheckoutOpen(true);
+    }
+  };
+
   const handleUpdateQuantity = (id, size, color, newQty) => {
     if (newQty <= 0) {
       handleRemoveCartItem(id, size, color);
@@ -483,36 +505,87 @@ function App() {
     });
   };
 
-  // Automatically redirect Admin users away from Customer Account page to Admin Dashboard
-  useEffect(() => {
-    if (
-      currentUser?.role === "admin" &&
-      (activePage === "account" || activePage === "dashboard")
-    ) {
-      setActivePage("admin");
-    }
-  }, [currentUser, activePage]);
-
-  // Route Listener for /admin, /delivery and /product URL entry & URL sync
+  // Route Listener for all valid routes & 404 handler
   useEffect(() => {
     const checkRoute = () => {
-      const path = window.location.pathname;
-      const search = window.location.search;
-      if (path === "/delivery" || search.includes("delivery")) {
-        setActivePage("delivery");
-      } else if (path === "/admin" || search.includes("admin")) {
+      const rawPath = window.location.pathname || "";
+      const path = rawPath.toLowerCase();
+      const search = (window.location.search || "").toLowerCase();
+
+      // 1. Root / Home
+      if (
+        path === "/" ||
+        path === "" ||
+        path === "/home" ||
+        path === "/home/"
+      ) {
+        setActivePage("home");
+      }
+      // 2. Shop / Catalog
+      else if (
+        path === "/shop" ||
+        path === "/shop/" ||
+        path === "/collections" ||
+        path === "/collections/"
+      ) {
+        setActivePage("shop");
+      }
+      // 3. About
+      else if (path === "/about" || path === "/about/") {
+        setActivePage("about");
+      }
+      // 4. Contact
+      else if (path === "/contact" || path === "/contact/") {
+        setActivePage("contact");
+      }
+      // 5. Lookbook
+      else if (path === "/lookbook" || path === "/lookbook/") {
+        setActivePage("lookbook");
+      }
+      // 6. User Account / Profile
+      else if (
+        path === "/account" ||
+        path === "/account/" ||
+        path === "/profile" ||
+        path === "/profile/" ||
+        path === "/dashboard" ||
+        path === "/dashboard/"
+      ) {
+        setActivePage("account");
+      }
+      // 7. Admin Executive Dashboard
+      else if (path === "/admin" || path === "/admin/") {
         setActivePage("admin");
-      } else if (path.startsWith("/product/") || search.includes("product=")) {
+      }
+      // 8. Delivery Driver App
+      else if (path === "/delivery" || path === "/delivery/") {
+        setActivePage("delivery");
+      }
+      // 9. Single Product Detail Page
+      else if (path.startsWith("/product/") || search.includes("product=")) {
         const idMatch =
           path.match(/\/product\/(\d+)/) || search.match(/product=(\d+)/);
-        if (idMatch && idMatch[1] && products.length > 0) {
+        if (idMatch && idMatch[1]) {
           const targetId = Number(idMatch[1]);
-          const found = products.find((p) => p.id === targetId);
-          if (found) {
-            setSelectedProduct(found);
-            setActivePage("product");
+          if (products.length > 0) {
+            const found = products.find((p) => p.id === targetId);
+            if (found) {
+              setSelectedProduct(found);
+              setActivePage("product");
+            } else {
+              setInvalidRoutePath(rawPath);
+              setActivePage("404");
+            }
           }
+        } else {
+          setInvalidRoutePath(rawPath);
+          setActivePage("404");
         }
+      }
+      // 10. Unknown / 404 Route
+      else {
+        setInvalidRoutePath(rawPath);
+        setActivePage("404");
       }
     };
     checkRoute();
@@ -535,13 +608,29 @@ function App() {
       window.location.pathname !== `/product/${selectedProduct.id}`
     ) {
       window.history.pushState({}, "", `/product/${selectedProduct.id}`);
+    } else if (activePage === "shop" && window.location.pathname !== "/shop") {
+      window.history.pushState({}, "", "/shop");
+    } else if (activePage === "about" && window.location.pathname !== "/about") {
+      window.history.pushState({}, "", "/about");
     } else if (
-      activePage !== "admin" &&
-      activePage !== "delivery" &&
-      activePage !== "product" &&
-      (window.location.pathname === "/admin" ||
-        window.location.pathname === "/delivery" ||
-        window.location.pathname.startsWith("/product/"))
+      activePage === "contact" &&
+      window.location.pathname !== "/contact"
+    ) {
+      window.history.pushState({}, "", "/contact");
+    } else if (
+      activePage === "lookbook" &&
+      window.location.pathname !== "/lookbook"
+    ) {
+      window.history.pushState({}, "", "/lookbook");
+    } else if (
+      activePage === "account" &&
+      window.location.pathname !== "/account"
+    ) {
+      window.history.pushState({}, "", "/account");
+    } else if (
+      activePage === "home" &&
+      window.location.pathname !== "/" &&
+      window.location.pathname !== "/home"
     ) {
       window.history.pushState({}, "", "/");
     }
@@ -558,7 +647,12 @@ function App() {
 
   // Handle Admin Isolated Full-Screen Layout vs Store Customer Layout
   if (activePage === "admin") {
-    if (currentUser?.role === "admin" || userSessionRole === "admin") {
+    const isVerifiedAdmin =
+      currentUser &&
+      currentUser.role === "admin" &&
+      userSessionRole === "admin";
+
+    if (isVerifiedAdmin) {
       return (
         <ConfigProvider theme={luxuryTheme}>
           <AdminDashboardPage
@@ -573,7 +667,50 @@ function App() {
           />
         </ConfigProvider>
       );
+    } else if (currentUser && currentUser.role !== "admin") {
+      // Normal customer is signed in, but visiting /admin - Deny access
+      return (
+        <ConfigProvider theme={luxuryTheme}>
+          <div className="relative min-h-screen bg-black text-white flex items-center justify-center p-4 sm:p-6 overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-neutral-900 via-neutral-950 to-black opacity-95" />
+            <div className="relative z-20 w-full max-w-md bg-neutral-900/90 border border-neutral-800 rounded-2xl p-6 sm:p-8 text-center shadow-2xl backdrop-blur-xl">
+              <div className="w-16 h-16 rounded-full bg-red-950/60 border border-red-500/40 text-red-400 flex items-center justify-center mx-auto mb-4">
+                <CrownOutlined className="text-2xl" />
+              </div>
+              <span className="text-[10px] font-mono font-bold uppercase tracking-[0.25em] text-red-400 block mb-1">
+                403 • ACCESS RESTRICTED
+              </span>
+              <h2 className="text-xl sm:text-2xl font-serif font-black uppercase text-white mb-2">
+                SUPERADMIN REQUIRED
+              </h2>
+              <p className="text-xs text-neutral-400 mb-6 leading-relaxed">
+                You are currently signed in as <strong className="text-white">{currentUser.name || currentUser.email}</strong>. This executive portal is strictly restricted to verified Maison Administrators.
+              </p>
+              <div className="flex flex-col gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActivePage("home");
+                    window.history.pushState({}, "", "/");
+                  }}
+                  className="w-full bg-white hover:bg-neutral-200 text-black font-extrabold text-xs uppercase tracking-wider py-3 rounded-xl transition-all cursor-pointer shadow-md"
+                >
+                  Return to Boutique
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full bg-neutral-800/80 hover:bg-neutral-800 text-neutral-300 hover:text-white font-semibold text-xs py-2.5 rounded-xl border border-neutral-700/60 transition-all cursor-pointer"
+                >
+                  Sign Out / Switch Account
+                </button>
+              </div>
+            </div>
+          </div>
+        </ConfigProvider>
+      );
     } else {
+      // Unauthenticated visitor: Render Secure Admin Login Gateway (strictly validated)
       return (
         <ConfigProvider theme={luxuryTheme}>
           <div className="relative min-h-screen bg-black text-white flex items-center justify-center p-4 sm:p-6 overflow-hidden">
@@ -588,19 +725,22 @@ function App() {
                   LEGACY STORE
                 </span>
                 <span className="text-[9px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded font-extrabold tracking-wider">
-                  SUPERADMIN
+                  EXECUTIVE PORTAL
                 </span>
               </div>
-              <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1.5 bg-black/60 px-3 py-1 rounded-full border border-emerald-500/30">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                SUPABASE PG ONLINE
+              <span className="text-[10px] font-mono text-neutral-400 flex items-center gap-1.5 bg-black/60 px-3 py-1 rounded-full border border-neutral-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                SECURE AUTHENTICATION GATEWAY
               </span>
             </div>
 
             <div className="relative z-20 w-full max-w-md">
               <AdminAuthModal
                 open={true}
-                onClose={() => setActivePage("home")}
+                onClose={() => {
+                  setActivePage("home");
+                  window.history.pushState({}, "", "/");
+                }}
                 onLoginSuccess={(userData) => {
                   setCurrentUser(userData);
                   setUserSessionRole("admin");
@@ -649,6 +789,7 @@ function App() {
               loading={loading}
               onQuickView={handleOpenProduct}
               onAddToCart={handleAddToCart}
+              onBuyNow={handleBuyNow}
               wishlistItems={wishlistItems}
               onToggleWishlist={handleToggleWishlist}
               onExploreCategory={handleExploreCategory}
@@ -669,6 +810,7 @@ function App() {
               onSortChange={setSortBy}
               onQuickView={handleOpenProduct}
               onAddToCart={handleAddToCart}
+              onBuyNow={handleBuyNow}
               wishlistItems={wishlistItems}
               onToggleWishlist={handleToggleWishlist}
             />
@@ -684,6 +826,7 @@ function App() {
                 setActiveCategory("all");
               }}
               onAddToCart={handleAddToCart}
+              onBuyNow={handleBuyNow}
               isWishlisted={
                 selectedProduct
                   ? wishlistItems.some((i) => i.id === selectedProduct.id)
@@ -692,6 +835,7 @@ function App() {
               onToggleWishlist={handleToggleWishlist}
               onSelectProduct={handleOpenProduct}
               currentUser={currentUser}
+              wishlistItems={wishlistItems}
             />
           )}
 
@@ -704,16 +848,36 @@ function App() {
           {(activePage === "account" || activePage === "dashboard") && (
             <UserAccountPage
               user={currentUser}
+              onNavigateAdmin={() => setActivePage("admin")}
               onUpdateProfile={(updated) => setCurrentUser(updated)}
               onLogout={handleLogout}
               wishlistItems={wishlistItems}
               onAddToCart={handleAddToCart}
+              onBuyNow={handleBuyNow}
               onRemoveFromWishlist={handleRemoveFromWishlist}
               onQuickView={handleOpenProduct}
               onNavigateShop={() => setActivePage("shop")}
               onOpenDeliveryTracking={(ord) => {
                 if (ord) setActiveDeliveryOrder(ord);
                 setDeliveryTrackingOpen(true);
+              }}
+            />
+          )}
+
+          {activePage === "404" && (
+            <NotFoundPage
+              invalidPath={invalidRoutePath}
+              onNavigateHome={() => {
+                setActivePage("home");
+                window.history.pushState({}, "", "/");
+              }}
+              onNavigateShop={() => {
+                setActivePage("shop");
+                window.history.pushState({}, "", "/shop");
+              }}
+              onNavigateContact={() => {
+                setActivePage("contact");
+                window.history.pushState({}, "", "/contact");
               }}
             />
           )}

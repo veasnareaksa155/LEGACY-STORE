@@ -17,10 +17,12 @@ import {
   CloseOutlined,
   EditOutlined,
   TableOutlined,
+  ThunderboltOutlined,
 } from "@ant-design/icons";
 import { Rate, message, Tooltip, Modal } from "antd";
 import { parseGalleryUrls } from "../services/cloudinary";
 import { fetchProductReviews, submitProductReview } from "../services/api";
+import ProductCard from "../components/ProductCard";
 
 const ProductDetailPage = ({
   product,
@@ -28,10 +30,12 @@ const ProductDetailPage = ({
   onNavigateBack,
   onNavigateShop,
   onAddToCart,
+  onBuyNow,
   isWishlisted = false,
   onToggleWishlist,
   onSelectProduct,
   currentUser,
+  wishlistItems = [],
 }) => {
   const [selectedSize, setSelectedSize] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
@@ -40,6 +44,7 @@ const ProductDetailPage = ({
   const [isZoomed, setIsZoomed] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
+  const [isAdded, setIsAdded] = useState(false);
 
   // Rating & Review State
   const [showRatingForm, setShowRatingForm] = useState(false);
@@ -315,6 +320,10 @@ const ProductDetailPage = ({
 
   const handleAddToCartClick = () => {
     onAddToCart(product, quantity, selectedSize, selectedColor);
+    setIsAdded(true);
+    setTimeout(() => {
+      setIsAdded(false);
+    }, 1600);
   };
 
   // Submit Rating & Review handler
@@ -734,52 +743,108 @@ const ProductDetailPage = ({
                   </div>
                 )}
 
-                {/* 3. Quantity & Add to Cart Action Row */}
-                <div className="pt-2 flex flex-col sm:flex-row gap-3 items-stretch">
-                  {/* Quantity Stepper */}
-                  <div className="flex items-center justify-between border-2 border-neutral-300 rounded-xl px-3 py-2 bg-white w-full sm:w-32 shrink-0">
-                    <button
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      disabled={quantity <= 1}
-                      className="w-6 h-6 flex items-center justify-center font-bold text-base hover:text-amber-600 disabled:opacity-30 cursor-pointer"
-                    >
-                      -
-                    </button>
-                    <span className="font-mono font-extrabold text-sm text-black">
-                      {quantity}
+                {/* Quantity Stepper Row */}
+                <div className="flex items-center justify-between pt-1">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-neutral-400">
+                      QUANTITY
                     </span>
-                    <button
-                      onClick={() => setQuantity(quantity + 1)}
-                      className="w-6 h-6 flex items-center justify-center font-bold text-base hover:text-amber-600 cursor-pointer"
-                    >
-                      +
-                    </button>
+                    <div className="inline-flex items-center border border-neutral-300 rounded-xl bg-white shadow-2xs overflow-hidden h-9 sm:h-9.5">
+                      <button
+                        type="button"
+                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                        disabled={quantity <= 1}
+                        className="w-8 sm:w-9 h-full flex items-center justify-center font-mono font-bold text-sm text-neutral-600 hover:text-black hover:bg-neutral-100 disabled:opacity-25 transition-colors cursor-pointer"
+                        title="Decrease quantity"
+                      >
+                        -
+                      </button>
+                      <span className="w-9 sm:w-10 h-full flex items-center justify-center font-mono font-bold text-xs text-neutral-950 bg-neutral-50/60 border-x border-neutral-200">
+                        {quantity}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setQuantity(quantity + 1)}
+                        className="w-8 sm:w-9 h-full flex items-center justify-center font-mono font-bold text-sm text-neutral-600 hover:text-black hover:bg-neutral-100 transition-colors cursor-pointer"
+                        title="Increase quantity"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Primary Add to Cart Button (Velora Style) */}
-                  <button
-                    onClick={handleAddToCartClick}
-                    className="flex-1 bg-black hover:bg-neutral-800 text-white h-12 rounded-xl font-extrabold text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer active:scale-98"
-                  >
-                    <ShoppingOutlined className="text-base" />
-                    <span>Add to Bag — ${(price * quantity).toFixed(2)}</span>
-                  </button>
+                  {/* Stock Status Indicator */}
+                  <span className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>In Stock & Ready to Ship</span>
+                  </span>
+                </div>
 
-                  {/* Wishlist Button */}
+                {/* 3. Luxury 1-Row Action Deck (3 Items: WISHLIST, ADD TO BAG, BUY NOW) */}
+                <div className="pt-2 flex items-center gap-2 sm:gap-3">
+                  {/* Item 1: WISHLIST (Luxury Heart Button on Left) */}
                   <button
+                    type="button"
                     onClick={() => onToggleWishlist(product)}
-                    className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center transition-all cursor-pointer shrink-0 ${
+                    className={`w-12 sm:w-13 h-12 sm:h-13 rounded-xl border-2 flex items-center justify-center transition-all duration-200 cursor-pointer shrink-0 shadow-xs active:scale-95 group/wish ${
                       isWishlisted
                         ? "border-rose-500 bg-rose-50 text-rose-600 shadow-sm"
-                        : "border-neutral-300 hover:border-black bg-white text-neutral-700 hover:text-black"
+                        : "border-neutral-300 hover:border-black bg-white text-neutral-700 hover:text-black hover:bg-neutral-50"
                     }`}
                     title={isWishlisted ? "Remove from wishlist" : "Save to wishlist"}
                   >
                     {isWishlisted ? (
-                      <HeartFilled className="text-lg text-rose-600 animate-pulse" />
+                      <HeartFilled className="text-lg text-rose-600 animate-pulse group-hover/wish:scale-110 transition-transform" />
                     ) : (
-                      <HeartOutlined className="text-lg" />
+                      <HeartOutlined className="text-lg group-hover/wish:text-rose-500 group-hover/wish:scale-110 transition-all" />
                     )}
+                  </button>
+
+                  {/* Item 2: ADD TO BAG (Crisp Atelier White Inverting to Obsidian) */}
+                  <button
+                    type="button"
+                    onClick={handleAddToCartClick}
+                    className={`flex-1 h-12 sm:h-13 rounded-xl border-2 flex items-center justify-center gap-2 px-3 sm:px-4 font-mono font-bold text-xs tracking-wider uppercase transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md active:scale-[0.98] min-w-0 group/bag ${
+                      isAdded
+                        ? "bg-neutral-950 border-neutral-950 text-emerald-400"
+                        : "bg-white hover:bg-neutral-950 text-neutral-950 hover:text-white border-neutral-950"
+                    }`}
+                    title="Add product to shopping bag"
+                  >
+                    {isAdded ? (
+                      <>
+                        <CheckOutlined className="text-sm text-emerald-400 animate-scale-in shrink-0" />
+                        <span className="text-emerald-400 animate-scale-in truncate">
+                          ADDED ✓
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingOutlined className="text-sm sm:text-base group-hover/bag:scale-110 transition-transform duration-200 shrink-0" />
+                        <span className="truncate">
+                          ADD TO BAG<span className="hidden sm:inline"> — ${(price * quantity).toFixed(2)}</span>
+                        </span>
+                      </>
+                    )}
+                  </button>
+
+                  {/* Item 3: BUY NOW (Executive Obsidian with Gold Lightning) */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onBuyNow) {
+                        onBuyNow(product, selectedSize, selectedColor);
+                      } else {
+                        handleAddToCartClick();
+                      }
+                    }}
+                    className="flex-1 h-12 sm:h-13 rounded-xl bg-neutral-950 hover:bg-black text-white hover:text-amber-300 border-2 border-neutral-950 font-mono font-bold text-xs tracking-widest uppercase flex items-center justify-center gap-2 px-3 sm:px-4 shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer active:scale-[0.98] min-w-0 group/buy"
+                    title="Instant VIP Checkout"
+                  >
+                    <ThunderboltOutlined className="text-sm sm:text-base text-amber-400 group-hover/buy:scale-110 transition-transform duration-200 shrink-0" />
+                    <span className="truncate text-white group-hover/buy:text-amber-300">
+                      BUY NOW<span className="hidden sm:inline"> — INSTANT VIP</span>
+                    </span>
                   </button>
                 </div>
               </div>
@@ -1165,67 +1230,43 @@ const ProductDetailPage = ({
           </div>
         </div>
 
-        {/* "YOU MAY ALSO LIKE" RELATED PRODUCTS (Velora Style) */}
+        {/* "YOU MAY ALSO LIKE" RELATED PRODUCTS (Luxury Atelier Showcase) */}
         {fallbackRelated.length > 0 && (
           <div className="mt-16 pt-10 border-t border-neutral-200">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg sm:text-xl font-serif font-black uppercase text-black tracking-tight">
-                You May Also Like
-              </h3>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+              <div>
+                <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-widest block mb-1">
+                  CURATED ATELIER SELECTIONS
+                </span>
+                <h3 className="text-lg sm:text-2xl font-serif font-black uppercase text-black tracking-tight m-0">
+                  You May Also Like
+                </h3>
+              </div>
               <button
+                type="button"
                 onClick={onNavigateShop}
-                className="text-xs font-mono font-bold uppercase text-neutral-500 hover:text-black flex items-center gap-1 cursor-pointer transition-colors"
+                className="text-xs font-mono font-bold uppercase text-neutral-600 hover:text-black flex items-center gap-1.5 cursor-pointer transition-all bg-neutral-100 hover:bg-neutral-200 px-4 py-2 rounded-full border border-neutral-200 shadow-2xs"
               >
-                <span>View All</span>
+                <span>View Full Catalogue</span>
                 <RightOutlined className="text-[10px]" />
               </button>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-              {fallbackRelated.map((relProd) => {
-                const relPrice = Number(relProd.price || 0);
-                return (
-                  <div
-                    key={relProd.id}
-                    onClick={() => {
-                      if (onSelectProduct) onSelectProduct(relProd);
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                    className="group bg-white rounded-2xl overflow-hidden border border-neutral-200 hover:border-black transition-all cursor-pointer shadow-xs hover:shadow-md flex flex-col justify-between"
-                  >
-                    <div className="relative aspect-[3/4] w-full overflow-hidden bg-neutral-100">
-                      <img
-                        src={relProd.image_url}
-                        alt={relProd.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        onError={(e) => {
-                          e.target.src =
-                            "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=400&q=80";
-                        }}
-                      />
-                      {relProd.is_new && (
-                        <span className="absolute top-2 left-2 bg-black text-white text-[8px] font-mono font-bold uppercase px-2 py-0.5 rounded">
-                          NEW
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="p-3">
-                      <h4 className="text-xs font-serif font-bold text-black uppercase truncate mb-1 group-hover:text-amber-600 transition-colors">
-                        {relProd.name}
-                      </h4>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-mono font-extrabold text-black">
-                          ${relPrice.toFixed(2)}
-                        </span>
-                        <span className="text-[10px] font-mono text-neutral-400 uppercase">
-                          {relProd.category?.name || "View"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
+              {fallbackRelated.map((relProd) => (
+                <ProductCard
+                  key={relProd.id}
+                  product={relProd}
+                  onQuickView={(p) => {
+                    if (onSelectProduct) onSelectProduct(p);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  onAddToCart={onAddToCart}
+                  onBuyNow={onBuyNow}
+                  isWishlisted={wishlistItems.some((i) => i.id === relProd.id)}
+                  onToggleWishlist={onToggleWishlist}
+                />
+              ))}
             </div>
           </div>
         )}
@@ -1239,8 +1280,9 @@ const ProductDetailPage = ({
         centered
         width={540}
         title={
-          <span className="font-serif font-black uppercase text-sm tracking-wider">
-            📏 Luxury Size Guide & Fit Specifications
+          <span className="font-serif font-black uppercase text-sm tracking-wider flex items-center gap-2">
+            <TableOutlined className="text-amber-500" />
+            <span>Luxury Size Guide & Fit Specifications</span>
           </span>
         }
       >
