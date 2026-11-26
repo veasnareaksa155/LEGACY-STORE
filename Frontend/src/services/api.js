@@ -12,43 +12,76 @@ const normalizeApiUrl = (url) => {
 
 // ============================================================================
 // DUAL-BACKEND FAILOVER ARCHITECTURE (ACTIVE-PASSIVE REDUNDANCY)
-// Service 1 (New Active Web Service): https://legacy-store-z3u6.onrender.com/api
-// Service 2 (Original Web Service / Fallback): https://legacy-store.onrender.com/api
+// Service 1 (Primary / Active Web Service): https://legacy-store-z3u6.onrender.com/api
+// Service 2 (Secondary / Suspended Fallback): https://legacy-store.onrender.com/api
 // ============================================================================
 const SERVICE_PRIMARY = "https://legacy-store-z3u6.onrender.com/api";
 const SERVICE_SECONDARY = "https://legacy-store.onrender.com/api";
-
-const CANDIDATE_SERVICES = [];
+const SUSPENDED_LEGACY_DOMAIN = "legacy-store.onrender.com";
 
 const isLocalhost =
   typeof window !== "undefined" &&
   (window.location.hostname === "localhost" ||
     window.location.hostname === "127.0.0.1");
 
+// Determine candidates safely
+const CANDIDATE_SERVICES = [];
+
+// Always put the known working Service 1 as the primary candidate
+CANDIDATE_SERVICES.push(SERVICE_PRIMARY);
+
 const envBaseUrl = import.meta.env.VITE_API_BASE_URL;
 const envFallbackUrl = import.meta.env.VITE_API_BASE_URL_FALLBACK;
 
-// If explicitly provided via ENV (e.g., custom domain or localhost in dev mode)
+// If an environment variable is explicitly provided
 if (envBaseUrl) {
   const norm = normalizeApiUrl(envBaseUrl);
-  if (!norm.includes("localhost") || isLocalhost) {
-    if (!CANDIDATE_SERVICES.includes(norm)) CANDIDATE_SERVICES.push(norm);
+  // If envBaseUrl is the known suspended old service, do NOT make it primary!
+  const isOldSuspended =
+    norm.includes(SUSPENDED_LEGACY_DOMAIN) && !norm.includes("z3u6");
+
+  if (!isOldSuspended) {
+    if (!norm.includes("localhost") || isLocalhost) {
+      if (!CANDIDATE_SERVICES.includes(norm)) {
+        // If it's a valid custom host, prioritize it
+        CANDIDATE_SERVICES.unshift(norm);
+      }
+    }
+  } else {
+    // If Vercel env contains the suspended URL, append it only as last fallback
+    if (!CANDIDATE_SERVICES.includes(norm)) {
+      CANDIDATE_SERVICES.push(norm);
+    }
   }
 }
 
-// Always ensure both Render services are registered in priority order
-if (!CANDIDATE_SERVICES.includes(SERVICE_PRIMARY)) {
-  CANDIDATE_SERVICES.push(SERVICE_PRIMARY);
-}
+// Ensure secondary fallback is registered
 if (!CANDIDATE_SERVICES.includes(SERVICE_SECONDARY)) {
   CANDIDATE_SERVICES.push(SERVICE_SECONDARY);
 }
+
 if (envFallbackUrl) {
   const normFallback = normalizeApiUrl(envFallbackUrl);
   if (!CANDIDATE_SERVICES.includes(normFallback)) {
     CANDIDATE_SERVICES.push(normFallback);
   }
 }
+
+// Circuit breaker quarantine table: { [url]: timestampMs }
+const quarantineTable = {};
+
+const isQuarantined = (url) => {
+  if (!url) return false;
+  const until = quarantineTable[normalizeApiUrl(url)];
+  return until && until > Date.now();
+};
+
+const quarantineUrl = (url, durationMs = 180000) => {
+  if (!url) return;
+  const norm = normalizeApiUrl(url);
+  quarantineTable[norm] = Date.now() + durationMs;
+  console.warn(`[Failover] Quarantining unresponsive backend: ${norm} for ${durationMs / 1000}s`);
+};
 
 // Pointer to the currently active working backend
 let activeServiceIndex = 0;
@@ -57,23 +90,57 @@ let activeServiceIndex = 0;
 try {
   const savedUrl = localStorage.getItem("lx_active_backend_url");
   if (savedUrl) {
-    const idx = CANDIDATE_SERVICES.indexOf(savedUrl);
-    if (idx !== -1) {
-      activeServiceIndex = idx;
+    const normSaved = normalizeApiUrl(savedUrl);
+    // If user's browser has stored the old suspended service, immediately upgrade to SERVICE_PRIMARY!
+    if (
+      normSaved.includes(SUSPENDED_LEGACY_DOMAIN) &&
+      !normSaved.includes("z3u6")
+    ) {
+      localStorage.setItem("lx_active_backend_url", SERVICE_PRIMARY);
+      activeServiceIndex = 0;
+    } else {
+      const idx = CANDIDATE_SERVICES.indexOf(normSaved);
+      if (idx !== -1 && !isQuarantined(normSaved)) {
+        activeServiceIndex = idx;
+      }
     }
   }
 } catch (e) {}
 
 export const getActiveApiUrl = () => {
+  // If current active is quarantined, find first healthy candidate
+  const current = CANDIDATE_SERVICES[activeServiceIndex];
+  if (isQuarantined(current)) {
+    const healthyIdx = CANDIDATE_SERVICES.findIndex((u) => !isQuarantined(u));
+    if (healthyIdx !== -1) {
+      activeServiceIndex = healthyIdx;
+      return CANDIDATE_SERVICES[healthyIdx];
+    }
+  }
   return CANDIDATE_SERVICES[activeServiceIndex] || SERVICE_PRIMARY;
 };
 
 export const getAllBackendUrls = () => [...CANDIDATE_SERVICES];
 
 export const rotateToNextBackend = (failedUrl = null) => {
-  if (CANDIDATE_SERVICES.length <= 1) return getActiveApiUrl();
+  if (failedUrl) {
+    quarantineUrl(failedUrl);
+  }
 
-  activeServiceIndex = (activeServiceIndex + 1) % CANDIDATE_SERVICES.length;
+  // Prevent race conditions: if another parallel request already switched away from failedUrl, don't rotate again
+  const current = CANDIDATE_SERVICES[activeServiceIndex];
+  if (failedUrl && normalizeApiUrl(failedUrl) !== current) {
+    return current;
+  }
+
+  // Pick first non-quarantined healthy candidate
+  const healthyIdx = CANDIDATE_SERVICES.findIndex((u) => !isQuarantined(u));
+  if (healthyIdx !== -1 && healthyIdx !== activeServiceIndex) {
+    activeServiceIndex = healthyIdx;
+  } else {
+    activeServiceIndex = (activeServiceIndex + 1) % CANDIDATE_SERVICES.length;
+  }
+
   const newActive = CANDIDATE_SERVICES[activeServiceIndex];
   try {
     localStorage.setItem("lx_active_backend_url", newActive);
@@ -91,6 +158,7 @@ export const rotateToNextBackend = (failedUrl = null) => {
 export const markBackendSuccess = (url) => {
   if (!url) return;
   const normalized = normalizeApiUrl(url);
+  delete quarantineTable[normalized];
   const idx = CANDIDATE_SERVICES.indexOf(normalized);
   if (idx !== -1 && idx !== activeServiceIndex) {
     activeServiceIndex = idx;
@@ -310,11 +378,20 @@ export const fetchProducts = async (params = {}) => {
 
 export const fetchProductById = async (id) => {
   try {
-    const response = await api.get(`/products/${id}`);
-    return response.data.data;
+    const data = await requestFetch(`/products/${id}`);
+    if (data && data.data) {
+      return data.data;
+    }
+    return data;
   } catch (error) {
-    console.error(`Error fetching product #${id}:`, error);
-    throw error;
+    console.warn(`requestFetch for product #${id} failed, trying axios fallback:`, error);
+    try {
+      const response = await api.get(`/products/${id}`);
+      return response.data.data || response.data;
+    } catch (e) {
+      console.error(`Error fetching product #${id}:`, e);
+      throw e;
+    }
   }
 };
 
